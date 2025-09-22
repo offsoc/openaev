@@ -100,7 +100,7 @@ const ScenarioDistributionByExercise: FunctionComponent<Props> = ({ scenarioId }
   }, []);
 
   const EXPECTATION_TYPES = [
-    ['PREVENTION', 'Prevention', 'Blocked'],
+    ['PREVENTION', 'Prevention', 'Prevented'],
     ['DETECTION', 'Detection', 'Detected'],
     ['VULNERABILITY', 'Vulnerability', 'Not vulnerable'],
     ['HUMAN_RESPONSE', 'Human Response', 'Successful'],
@@ -123,21 +123,18 @@ const ScenarioDistributionByExercise: FunctionComponent<Props> = ({ scenarioId }
       {loadingScenarioStatistics && (<Loader variant="inElement" />)}
       {(!loadingScenarioStatistics && series[0].data.length > 0) && (
         <Chart
-          options={verticalBarsChartOptions(
+          options={verticalBarsChartOptions({
             theme,
-            getXFormatter(fsd),
-            getYFormatter(),
-            false,
-            false,
-            false,
-            true,
-            'dataPoints',
-            true,
+            xFormatter: getXFormatter(fsd),
+            yFormatter: getYFormatter(),
+            legend: true,
+            tickAmount: 'dataPoints',
+            isResult: true,
             isFakeData,
-            1,
-            t('No data to display'),
-            customTooltip(simulationEndDateLabel),
-          )}
+            max: 1,
+            emptyChartText: t('No data to display'),
+            customTooltip: customTooltip(simulationEndDateLabel),
+          })}
           series={series}
           type="bar"
           width="100%"

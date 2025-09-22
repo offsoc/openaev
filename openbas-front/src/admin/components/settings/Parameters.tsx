@@ -1,23 +1,22 @@
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, List, ListItem, ListItemText, Paper, Switch, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { makeStyles } from 'tss-react/mui';
 
-import { fetchPlatformParameters, updatePlatformDarkParameters, updatePlatformEnterpriseEditionParameters, updatePlatformLightParameters, updatePlatformParameters, updatePlatformWhitemarkParameters, updateSettingsOnboarding } from '../../../actions/Application';
+import { fetchPlatformParameters, updatePlatformDarkParameters, updatePlatformEnterpriseEditionParameters, updatePlatformLightParameters, updatePlatformParameters, updatePlatformWhitemarkParameters } from '../../../actions/Application';
 import { type LoggedHelper } from '../../../actions/helper';
 import Breadcrumbs from '../../../components/Breadcrumbs';
 import { useFormatter } from '../../../components/i18n';
 import ItemBoolean from '../../../components/ItemBoolean';
 import ItemCopy from '../../../components/ItemCopy';
 import { useHelper } from '../../../store';
-import { type PlatformSettings, type SettingsEnterpriseEditionUpdateInput, type SettingsOnboardingUpdateInput, type SettingsPlatformWhitemarkUpdateInput, type SettingsUpdateInput, type ThemeInput } from '../../../utils/api-types';
+import { type PlatformSettings, type SettingsEnterpriseEditionUpdateInput, type SettingsPlatformWhitemarkUpdateInput, type SettingsUpdateInput, type ThemeInput } from '../../../utils/api-types';
 import { useAppDispatch } from '../../../utils/hooks';
 import useDataLoader from '../../../utils/hooks/useDataLoader';
-import { Can } from '../../../utils/permissions/PermissionsProvider';
+import { AbilityContext, Can } from '../../../utils/permissions/PermissionsProvider';
 import { ACTIONS, SUBJECTS } from '../../../utils/permissions/types';
 import EnterpriseEditionButton from '../common/entreprise_edition/EnterpriseEditionButton';
 import ParametersForm from './ParametersForm';
-import ParametersOnboardingForm from './ParametersOnboardingForm';
 import ThemeForm from './ThemeForm';
 
 const useStyles = makeStyles()(theme => ({
@@ -37,6 +36,9 @@ const Parameters = () => {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const { t, fldt } = useFormatter();
+  const ability = useContext(AbilityContext);
+  const cannotManagePlatformSettings = ability.cannot(ACTIONS.MANAGE, SUBJECTS.PLATFORM_SETTINGS);
+
   const [openEEChanges, setOpenEEChanges] = useState(false);
   const { settings }: { settings: PlatformSettings } = useHelper((helper: LoggedHelper) => ({ settings: helper.getPlatformSettings() }));
   const isEnterpriseEditionActivated = settings.platform_license?.license_is_enterprise;
@@ -76,7 +78,6 @@ const Parameters = () => {
   const onUpdateDarkParameters = (data: ThemeInput) => dispatch(updatePlatformDarkParameters(data));
   const updateEnterpriseEdition = (data: SettingsEnterpriseEditionUpdateInput) => dispatch(updatePlatformEnterpriseEditionParameters(data));
   const updatePlatformWhitemark = (data: SettingsPlatformWhitemarkUpdateInput) => dispatch(updatePlatformWhitemarkParameters(data));
-  const updateOnboarding = (data: SettingsOnboardingUpdateInput) => dispatch(updateSettingsOnboarding(data));
   return (
     <>
       <div style={{
@@ -103,20 +104,21 @@ const Parameters = () => {
           <div>
             {!isEnterpriseEditionByConfig && !isEnterpriseEdition && (
               <Can I={ACTIONS.MANAGE} a={SUBJECTS.PLATFORM_SETTINGS}>
-
                 <EnterpriseEditionButton />
               </Can>
             )}
             {!isEnterpriseEditionByConfig && isEnterpriseEdition && (
               <>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="primary"
-                  onClick={() => setOpenEEChanges(true)}
-                >
-                  {t('Disable Enterprise Edition')}
-                </Button>
+                <Can I={ACTIONS.MANAGE} a={SUBJECTS.PLATFORM_SETTINGS}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => setOpenEEChanges(true)}
+                  >
+                    {t('Disable Enterprise Edition')}
+                  </Button>
+                </Can>
                 <Dialog
                   slotProps={{ paper: { elevation: 1 } }}
                   open={openEEChanges}
@@ -262,6 +264,7 @@ const Parameters = () => {
               platform_scenario_dashboard: settings?.platform_scenario_dashboard,
               platform_simulation_dashboard: settings?.platform_simulation_dashboard,
             }}
+            canNotManage={cannotManagePlatformSettings}
           />
         </Paper>
         <Paper variant="outlined" style={{ height: 'auto' }} className={`${classes.paperList} ${classes.marginBottom}`}>
@@ -316,7 +319,7 @@ const Parameters = () => {
             <ListItem divider>
               <ListItemText primary={t('Remove Filigran logos')} />
               <Switch
-                disabled={settings.platform_license?.license_is_validated === false}
+                disabled={settings.platform_license?.license_is_validated === false || ability.cannot(ACTIONS.MANAGE, SUBJECTS.PLATFORM_SETTINGS)}
                 checked={settings.platform_whitemark === 'true'}
                 onChange={(_event, checked) => updatePlatformWhitemark({ platform_whitemark: checked.toString() })}
               />
@@ -333,13 +336,21 @@ const Parameters = () => {
         <div>
           <Typography variant="h4">{t('Dark theme')}</Typography>
           <Paper variant="outlined" classes={{ root: classes.paper }}>
-            <ThemeForm onSubmit={onUpdateDarkParameters} initialValues={initialValuesDark} />
+            <ThemeForm
+              onSubmit={onUpdateDarkParameters}
+              initialValues={initialValuesDark}
+              canNotManage={cannotManagePlatformSettings}
+            />
           </Paper>
         </div>
         <div>
           <Typography variant="h4">{t('Light theme')}</Typography>
           <Paper variant="outlined" classes={{ root: classes.paper }}>
-            <ThemeForm onSubmit={onUpdateLigthParameters} initialValues={initialValuesLight} />
+            <ThemeForm
+              onSubmit={onUpdateLigthParameters}
+              initialValues={initialValuesLight}
+              canNotManage={cannotManagePlatformSettings}
+            />
           </Paper>
         </div>
         <div style={{
@@ -375,14 +386,6 @@ const Parameters = () => {
               </ListItem>
             </List>
           </Paper>
-          <Typography variant="h4" sx={{ mt: 2 }}>{t('onboarding_help_settings')}</Typography>
-          <ParametersOnboardingForm
-            onSubmit={updateOnboarding}
-            initialValues={{
-              platform_onboarding_contextual_help_enable: settings?.platform_onboarding_contextual_help_enable,
-              platform_onboarding_widget_enable: settings?.platform_onboarding_widget_enable,
-            }}
-          />
         </div>
       </div>
     </>

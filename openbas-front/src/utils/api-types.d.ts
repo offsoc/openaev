@@ -1253,12 +1253,6 @@ export interface CweOutput {
   cwe_source?: string;
 }
 
-export interface DateHistogramSeries {
-  /** Filter object to search within filterable attributes */
-  filter?: FilterGroup;
-  name?: string;
-}
-
 export type DateHistogramWidget = UtilRequiredKeys<
   WidgetConfiguration,
   "widget_configuration_type"
@@ -1266,7 +1260,6 @@ export type DateHistogramWidget = UtilRequiredKeys<
   display_legend?: boolean;
   interval: "year" | "month" | "week" | "day" | "hour" | "quarter";
   mode: string;
-  series: DateHistogramSeries[];
   stacked?: boolean;
 };
 
@@ -1670,6 +1663,19 @@ export interface EngineSortField {
   fieldName: string;
 }
 
+export interface EsAssetGroup {
+  /** @format date-time */
+  base_created_at?: string;
+  base_dependencies?: string[];
+  base_entity?: string;
+  base_id?: string;
+  base_representative?: string;
+  base_restrictions?: string[];
+  /** @format date-time */
+  base_updated_at?: string;
+  name?: string;
+}
+
 export interface EsAttackPath {
   /** @uniqueItems true */
   attackPatternChildrenIds?: string[];
@@ -1714,6 +1720,9 @@ export type EsBase = BaseEsBase &
     | BaseEsBaseBaseEntityMapping<"scenario", EsScenario>
     | BaseEsBaseBaseEntityMapping<"tag", EsTag>
     | BaseEsBaseBaseEntityMapping<"vulnerable-endpoint", EsVulnerableEndpoint>
+    | BaseEsBaseBaseEntityMapping<"team", EsTeam>
+    | BaseEsBaseBaseEntityMapping<"security-platform", EsSecurityPlatform>
+    | BaseEsBaseBaseEntityMapping<"asset-group", EsAssetGroup>
   );
 
 export interface EsEndpoint {
@@ -1838,6 +1847,7 @@ export interface EsInjectExpectation {
   inject_expectation_score?: number;
   inject_expectation_status?: string;
   inject_expectation_type?: string;
+  inject_title?: string;
 }
 
 export interface EsScenario {
@@ -1872,6 +1882,19 @@ export interface EsSearch {
   /** @format double */
   base_score?: number;
   base_updated_at?: string;
+}
+
+export interface EsSecurityPlatform {
+  /** @format date-time */
+  base_created_at?: string;
+  base_dependencies?: string[];
+  base_entity?: string;
+  base_id?: string;
+  base_representative?: string;
+  base_restrictions?: string[];
+  /** @format date-time */
+  base_updated_at?: string;
+  name?: string;
 }
 
 export interface EsSeries {
@@ -1923,6 +1946,19 @@ export interface EsTag {
   /** @format date-time */
   base_updated_at?: string;
   tag_color?: string;
+}
+
+export interface EsTeam {
+  /** @format date-time */
+  base_created_at?: string;
+  base_dependencies?: string[];
+  base_entity?: string;
+  base_id?: string;
+  base_representative?: string;
+  base_restrictions?: string[];
+  /** @format date-time */
+  base_updated_at?: string;
+  name?: string;
 }
 
 export interface EsVulnerableEndpoint {
@@ -2448,15 +2484,7 @@ export interface FlagInput {
 export type FlatConfiguration = UtilRequiredKeys<
   WidgetConfiguration,
   "widget_configuration_type"
-> & {
-  series: FlatSeries[];
-};
-
-export interface FlatSeries {
-  /** Filter object to search within filterable attributes */
-  filter?: FilterGroup;
-  name?: string;
-}
+>;
 
 export interface FullTextSearchCountResult {
   clazz: string;
@@ -2537,6 +2565,7 @@ export interface HistogramWidget {
   display_legend?: boolean;
   end?: string;
   mode: string;
+  series: Series[];
   stacked?: boolean;
   start?: string;
   time_range:
@@ -2616,6 +2645,7 @@ export interface Inject {
   inject_assets?: string[];
   inject_attack_patterns?: AttackPattern[];
   inject_city?: string;
+  inject_collect_status?: "COLLECTING" | "COMPLETED";
   inject_communications?: string[];
   /** @format int64 */
   inject_communications_not_ack_number?: number;
@@ -2885,15 +2915,6 @@ export interface InjectExportRequestInput {
 
 export interface InjectExportTarget {
   inject_id?: string;
-}
-
-export interface InjectImportInput {
-  target: InjectImportTargetDefinition;
-}
-
-export interface InjectImportTargetDefinition {
-  id?: string;
-  type: "ATOMIC_TESTING" | "SIMULATION" | "SCENARIO";
 }
 
 export interface InjectImporter {
@@ -3186,6 +3207,7 @@ export interface InjectorContractAddInput {
   contract_labels?: Record<string, string>;
   contract_manual?: boolean;
   contract_platforms?: string[];
+  contract_vulnerability_external_ids?: string[];
   contract_vulnerability_ids?: string[];
   external_contract_id?: string;
   injector_id: string;
@@ -3307,6 +3329,7 @@ export interface InjectorContractUpdateInput {
   contract_labels?: Record<string, string>;
   contract_manual?: boolean;
   contract_platforms?: string[];
+  contract_vulnerability_external_ids?: string[];
   contract_vulnerability_ids?: string[];
   is_atomic_testing?: boolean;
 }
@@ -3789,17 +3812,6 @@ export interface ObjectiveInput {
   /** @format int32 */
   objective_priority?: number;
   objective_title?: string;
-}
-
-export interface OnboardingCategoryDTO {
-  category: string;
-  icon: string;
-  items: OnboardingItemDTO[];
-}
-
-export interface OnboardingItemDTO {
-  labelKey: string;
-  videoLink: string;
 }
 
 export interface Option {
@@ -4674,7 +4686,7 @@ export interface PlatformSettings {
   /** Reply to mail to use by default for injects */
   default_reply_to?: string;
   /** List of enabled dev features */
-  enabled_dev_features?: "_RESERVED"[];
+  enabled_dev_features?: ("_RESERVED" | "OPENAEV_REGISTRATION")[];
   /** True if the Caldera Executor is enabled */
   executor_caldera_enable?: boolean;
   /** Url of the Caldera Executor */
@@ -4750,10 +4762,6 @@ export interface PlatformSettings {
   platform_light_theme?: ThemeInput;
   /** Name of the platform */
   platform_name: string;
-  /** Platform onboarding contextual help enabled */
-  platform_onboarding_contextual_help_enable?: boolean;
-  /** Platform onboarding widget enabled */
-  platform_onboarding_widget_enable?: boolean;
   /** List of OpenID providers */
   platform_openid_providers?: OAuthProvider[];
   /** Policies of the platform */
@@ -4776,6 +4784,18 @@ export interface PlatformSettings {
   telemetry_manager_enable?: boolean;
   /** True if connection with XTM Hub is enabled */
   xtm_hub_enable?: boolean;
+  /** True if xtmhub backend is reachable */
+  xtm_hub_reachable?: boolean;
+  /** XTM Hub registration date */
+  xtm_hub_registration_date?: string;
+  /** XTM Hub registration status */
+  xtm_hub_registration_status?: string;
+  /** XTM Hub registration user id */
+  xtm_hub_registration_user_id?: string;
+  /** XTM Hub registration user name */
+  xtm_hub_registration_user_name?: string;
+  /** XTM Hub token */
+  xtm_hub_token?: string;
   /** Url of XTM Hub */
   xtm_hub_url?: string;
   /** True if connection with OpenCTI is enabled */
@@ -5430,16 +5450,15 @@ export interface SecurityPlatformUpsertInput {
   security_platform_type: "EDR" | "XDR" | "SIEM" | "SOAR" | "NDR" | "ISPM";
 }
 
+export interface Series {
+  /** Filter object to search within filterable attributes */
+  filter?: FilterGroup;
+  name?: string;
+}
+
 export interface SettingsEnterpriseEditionUpdateInput {
   /** cert of enterprise edition */
   platform_enterprise_license?: string;
-}
-
-export interface SettingsOnboardingUpdateInput {
-  /** Platform onboarding contextual help enabled */
-  platform_onboarding_contextual_help_enable?: boolean;
-  /** Platform onboarding widget enabled */
-  platform_onboarding_widget_enable?: boolean;
 }
 
 export interface SettingsPlatformWhitemarkUpdateInput {
@@ -5604,16 +5623,6 @@ export interface StatusPayloadOutput {
   payload_type?: string;
 }
 
-export interface StepsInput {
-  steps: string[];
-}
-
-export interface StructuralHistogramSeries {
-  /** Filter object to search within filterable attributes */
-  filter?: FilterGroup;
-  name?: string;
-}
-
 export type StructuralHistogramWidget = UtilRequiredKeys<
   WidgetConfiguration,
   "widget_configuration_type"
@@ -5626,7 +5635,6 @@ export type StructuralHistogramWidget = UtilRequiredKeys<
    */
   limit?: number;
   mode: string;
-  series: StructuralHistogramSeries[];
   stacked?: boolean;
 };
 
@@ -5923,13 +5931,6 @@ export interface UpdateNotificationRuleInput {
   subject: string;
 }
 
-export interface UpdateOnboardingInput {
-  /** User onboarding contextual help enabled */
-  user_onboarding_contextual_help_enable: "DEFAULT" | "ENABLED" | "DISABLED";
-  /** User onboarding widget enabled */
-  user_onboarding_widget_enable: "DEFAULT" | "ENABLED" | "DISABLED";
-}
-
 export interface UpdateProfileInput {
   user_country?: string;
   user_email: string;
@@ -6080,11 +6081,6 @@ export interface User {
   user_lang?: string;
   /** Last name of the user */
   user_lastname?: string;
-  /** User onboarding contextual help enabled */
-  user_onboarding_contextual_help_enable: "DEFAULT" | "ENABLED" | "DISABLED";
-  user_onboarding_progress?: string;
-  /** User onboarding widget enabled */
-  user_onboarding_widget_enable: "DEFAULT" | "ENABLED" | "DISABLED";
   /** Organization ID of the user */
   user_organization?: string;
   /** PGP key of the user */
@@ -6105,22 +6101,6 @@ export interface User {
    * @format date-time
    */
   user_updated_at: string;
-}
-
-export interface UserOnboardingProgress {
-  listened?: boolean;
-  /** @format date-time */
-  onboarding_created_at?: string;
-  onboarding_id: string;
-  /** @format date-time */
-  onboarding_updated_at?: string;
-  progress: UserOnboardingStepStatus[];
-}
-
-export interface UserOnboardingStepStatus {
-  completed?: boolean;
-  skipped?: boolean;
-  step?: string;
 }
 
 export interface UserOutput {
@@ -6270,4 +6250,27 @@ export interface WidgetLayout {
   widget_layout_x: number;
   /** @format int32 */
   widget_layout_y: number;
+}
+
+export interface WidgetToEntitiesInput {
+  /** The values to filter the entities by */
+  filter_values?: string[];
+  /** Additional parameters for the widget */
+  parameters?: Record<string, string>;
+  /**
+   * The index of the series to filter by, if applicable, otherwise 0
+   * @format int32
+   */
+  series_index?: number;
+}
+
+export interface WidgetToEntitiesOutput {
+  /** List of entities */
+  es_entities?: EsBase[];
+  list_configuration?: ListConfiguration;
+}
+
+export interface XtmHubRegisterInput {
+  /** The registration token */
+  token: string;
 }

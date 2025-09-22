@@ -1,7 +1,7 @@
 package io.openbas.api.custom_dashboard;
 
 import static io.openbas.rest.custom_dashboard.CustomDashboardApi.CUSTOM_DASHBOARDS_URI;
-import static io.openbas.utils.Constants.IMPORTED_OBJECT_NAME_SUFFIX;
+import static io.openbas.utils.constants.Constants.IMPORTED_OBJECT_NAME_SUFFIX;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,7 +16,7 @@ import io.openbas.database.model.CustomDashboard;
 import io.openbas.jsonapi.JsonApiDocument;
 import io.openbas.jsonapi.ResourceObject;
 import io.openbas.jsonapi.ZipJsonApi;
-import io.openbas.utils.mockUser.WithMockAdminUser;
+import io.openbas.utils.mockUser.WithMockUser;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
-@WithMockAdminUser
+@WithMockUser(isAdmin = true)
 @DisplayName("Custom dashboard api importer tests")
 class CustomDashboardApiImporterTest extends IntegrationTest {
 

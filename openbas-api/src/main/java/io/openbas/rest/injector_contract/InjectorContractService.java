@@ -1,15 +1,18 @@
 package io.openbas.rest.injector_contract;
 
 import static io.openbas.database.criteria.GenericCriteria.countQuery;
+import static io.openbas.database.model.InjectorContract.*;
 import static io.openbas.helper.DatabaseHelper.updateRelation;
 import static io.openbas.utils.JpaUtils.createJoinArrayAggOnId;
 import static io.openbas.utils.JpaUtils.createLeftJoin;
 import static io.openbas.utils.pagination.SortUtilsCriteriaBuilder.toSortCriteriaBuilder;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.openbas.database.model.*;
 import io.openbas.database.raw.RawInjectorsContrats;
 import io.openbas.database.repository.InjectorContractRepository;
 import io.openbas.database.repository.InjectorRepository;
+import io.openbas.database.specification.InjectorContractSpecification;
 import io.openbas.injectors.email.EmailContract;
 import io.openbas.injectors.ovh.OvhSmsContract;
 import io.openbas.rest.attack_pattern.service.AttackPatternService;
@@ -20,6 +23,8 @@ import io.openbas.rest.injector_contract.form.InjectorContractUpdateInput;
 import io.openbas.rest.injector_contract.form.InjectorContractUpdateMappingInput;
 import io.openbas.rest.injector_contract.output.InjectorContractBaseOutput;
 import io.openbas.rest.injector_contract.output.InjectorContractFullOutput;
+import io.openbas.service.UserService;
+import io.openbas.utils.TargetType;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Tuple;
@@ -52,6 +57,7 @@ public class InjectorContractService {
   private final AttackPatternService attackPatternService;
   private final CveService cveService;
   private final InjectorRepository injectorRepository;
+  private final UserService userService;
 
   @Value("${openbas.xls.import.mail.enable}")
   private boolean mailImportEnabled;
@@ -112,9 +118,16 @@ public class InjectorContractService {
       selectForInjectorContractBase(cb, cq, injectorContractRoot);
     }
 
+    // Always apply access spec
+    Specification<InjectorContract> accessSpec =
+        InjectorContractSpecification.hasAccessToInjectorContract(userService.currentUser());
+
+    Specification<InjectorContract> combinedSpec =
+        (specification == null ? accessSpec : specification.and(accessSpec));
+
     // -- Text Search and Filters --
     if (specification != null) {
-      Predicate predicate = specification.toPredicate(injectorContractRoot, cq, cb);
+      Predicate predicate = combinedSpec.toPredicate(injectorContractRoot, cq, cb);
       if (predicate != null) {
         cq.where(predicate);
       }
@@ -132,7 +145,9 @@ public class InjectorContractService {
     query.setMaxResults(pageable.getPageSize());
 
     // -- Count Query --
-    Long total = countQuery(cb, this.entityManager, InjectorContract.class, specificationCount);
+    Specification<InjectorContract> combinedSpecCount =
+        (specificationCount == null ? accessSpec : specificationCount.and(accessSpec));
+    Long total = countQuery(cb, this.entityManager, InjectorContract.class, combinedSpecCount);
 
     QuerySetup qs = new QuerySetup();
     qs.setQuery(query);
@@ -167,7 +182,13 @@ public class InjectorContractService {
   }
 
   public Iterable<RawInjectorsContrats> getAllRawInjectContracts() {
-    return injectorContractRepository.getAllRawInjectorsContracts();
+    User currentUser = userService.currentUser();
+    if (currentUser.isAdminOrBypass()
+        || currentUser.getCapabilities().contains(Capability.ACCESS_PAYLOADS)) {
+      return injectorContractRepository.getAllRawInjectorsContracts();
+    }
+    return injectorContractRepository.getAllRawInjectorsContractsWithoutPayloadOrGranted(
+        currentUser.getId());
   }
 
   public InjectorContract getSingleInjectorContract(String injectorContractId) {
@@ -188,16 +209,13 @@ public class InjectorContractService {
               new HashSet<>(input.getAttackPatternsExternalIds()));
     } else if (!input.getAttackPatternsIds().isEmpty()) {
       aps =
-          attackPatternService.getAttackPatternsByInternalIdsThrowIfMissing(
+          attackPatternService.findAllByInternalIdsThrowIfMissing(
               new HashSet<>(input.getAttackPatternsIds()));
     }
     injectorContract.setAttackPatterns(aps);
 
-    List<Cve> vulns = new ArrayList<>();
-    if (!input.getVulnerabilityIds().isEmpty()) {
-      vulns = cveService.findAllByIdsOrThrowIfMissing(new HashSet<>(input.getVulnerabilityIds()));
-    }
-    injectorContract.setVulnerabilities(vulns);
+    setVulnerabilitiesFromExternalOrInternalIds(
+        input.getVulnerabilityExternalIds(), input.getVulnerabilityIds(), injectorContract);
 
     injectorContract.setInjector(
         updateRelation(input.getInjectorId(), injectorContract.getInjector(), injectorRepository));
@@ -212,12 +230,23 @@ public class InjectorContractService {
             .orElseThrow(ElementNotFoundException::new);
     injectorContract.setUpdateAttributes(input);
     injectorContract.setAttackPatterns(
-        attackPatternService.getAttackPatternsByInternalIdsThrowIfMissing(
+        attackPatternService.findAllByInternalIdsThrowIfMissing(
             new HashSet<>(input.getAttackPatternsIds())));
-    injectorContract.setVulnerabilities(
-        cveService.findAllByIdsOrThrowIfMissing(new HashSet<>(input.getVulnerabilityIds())));
+    setVulnerabilitiesFromExternalOrInternalIds(
+        input.getVulnerabilityExternalIds(), input.getVulnerabilityIds(), injectorContract);
     injectorContract.setUpdatedAt(Instant.now());
     return injectorContractRepository.save(injectorContract);
+  }
+
+  private void setVulnerabilitiesFromExternalOrInternalIds(
+      List<String> externalIds, List<String> internalIds, InjectorContract injectorContract) {
+    Set<Cve> vulns = new HashSet<>();
+    if (!externalIds.isEmpty()) {
+      vulns = cveService.findAllByExternalIdsOrThrowIfMissing(new HashSet<>(externalIds));
+    } else if (!internalIds.isEmpty()) {
+      vulns = cveService.findAllByIdsOrThrowIfMissing(new HashSet<>(internalIds));
+    }
+    injectorContract.setVulnerabilities(vulns);
   }
 
   public InjectorContract updateAttackPatternMappings(
@@ -227,7 +256,7 @@ public class InjectorContractService {
             .findByIdOrExternalId(injectorContractId, injectorContractId)
             .orElseThrow(ElementNotFoundException::new);
     injectorContract.setAttackPatterns(
-        attackPatternService.getAttackPatternsByInternalIdsThrowIfMissing(
+        attackPatternService.findAllByInternalIdsThrowIfMissing(
             new HashSet<>(input.getAttackPatternsIds())));
     injectorContract.setVulnerabilities(
         cveService.findAllByIdsOrThrowIfMissing(new HashSet<>(input.getVulnerabilityIds())));
@@ -250,6 +279,22 @@ public class InjectorContractService {
     } else {
       this.injectorContractRepository.deleteById(injectorContract.getId());
     }
+  }
+
+  public boolean checkTargetSupport(InjectorContract injectorContract, TargetType targetType) {
+    JsonNode fieldsNode = injectorContract.getConvertedContent().get(CONTRACT_CONTENT_FIELDS);
+    Set<TargetType> supportedTargetTypes = new HashSet<>();
+    for (JsonNode field : fieldsNode) {
+      String type = field.path(CONTRACT_ELEMENT_CONTENT_TYPE).asText();
+      switch (type) {
+        case CONTRACT_ELEMENT_CONTENT_TYPE_ASSET_GROUP ->
+            supportedTargetTypes.add(TargetType.ASSETS_GROUPS);
+        case CONTRACT_ELEMENT_CONTENT_TYPE_ASSET -> supportedTargetTypes.add(TargetType.ASSETS);
+        case CONTRACT_ELEMENT_CONTENT_TYPE_TEAM -> supportedTargetTypes.add(TargetType.TEAMS);
+      }
+    }
+
+    return supportedTargetTypes.contains(targetType);
   }
 
   // -- CRITERIA BUILDER --

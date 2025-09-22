@@ -2,6 +2,7 @@ package io.openbas.rest;
 
 import static io.openbas.rest.cve.CveApi.CVE_API;
 import static io.openbas.utils.JsonUtils.asJsonString;
+import static io.openbas.utils.fixtures.CveFixture.CVE_2025_5678;
 import static io.openbas.utils.fixtures.CveInputFixture.CVE_EXTERNAL_ID;
 import static io.openbas.utils.fixtures.CveInputFixture.createDefaultCveCreateInput;
 import static java.time.Instant.now;
@@ -21,7 +22,7 @@ import io.openbas.rest.cve.form.CveUpdateInput;
 import io.openbas.utils.fixtures.CollectorFixture;
 import io.openbas.utils.fixtures.composers.CollectorComposer;
 import io.openbas.utils.fixtures.composers.CveComposer;
-import io.openbas.utils.mockUser.WithMockAdminUser;
+import io.openbas.utils.mockUser.WithMockUser;
 import io.openbas.utils.pagination.SearchPaginationInput;
 import jakarta.annotation.Resource;
 import jakarta.transaction.Transactional;
@@ -34,7 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @TestInstance(PER_CLASS)
 @Transactional
-@WithMockAdminUser
+@WithMockUser(isAdmin = true)
 @DisplayName("CVE API Integration Tests")
 class CveApiTest extends IntegrationTest {
 
@@ -62,7 +63,7 @@ class CveApiTest extends IntegrationTest {
 
   @Nested
   @DisplayName("When working with CVEs")
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   class WhenWorkingWithCves {
 
     @Test
@@ -90,7 +91,7 @@ class CveApiTest extends IntegrationTest {
     @DisplayName("Should fetch a CVE by ID")
     void shouldFetchCveById() throws Exception {
       Cve cve = new Cve();
-      cve.setExternalId("CVE-2025-5678");
+      cve.setExternalId(CVE_2025_5678);
       cve.setCvssV31(new BigDecimal("8.9"));
       cve.setDescription("Test CVE");
 
@@ -103,7 +104,7 @@ class CveApiTest extends IntegrationTest {
               .getResponse()
               .getContentAsString();
 
-      assertThatJson(response).node("cve_external_id").isEqualTo("CVE-2025-5678");
+      assertThatJson(response).node("cve_external_id").isEqualTo(CVE_2025_5678);
     }
 
     @Test

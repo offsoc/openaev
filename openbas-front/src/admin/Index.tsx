@@ -20,7 +20,7 @@ import ProtectedRoute from '../utils/permissions/ProtectedRoute';
 import { ACTIONS, SUBJECTS } from '../utils/permissions/types';
 import LeftBar from './components/nav/LeftBar';
 import TopBar from './components/nav/TopBar';
-import OnboardingRenderer from './components/onboarding/OnboardingRenderer';
+import DeployScenario from './components/scenarios/DeployScenario';
 import InjectIndex from './components/simulations/simulation/injects/InjectIndex';
 
 const Home = lazy(() => import('./components/Home'));
@@ -93,7 +93,6 @@ const Index = () => {
       <LeftBar />
       <Box component="main" sx={boxSx}>
         <div className={classes.toolbar} />
-        <OnboardingRenderer />
         <Suspense fallback={<Loader />}>
           <Routes>
             <Route path="profile/*" element={errorWrapper(IndexProfile)()} />
@@ -162,6 +161,7 @@ const Index = () => {
               )}
             />
             <Route path="scenarios" element={errorWrapper(Scenarios)()} />
+            <Route path="deploy-scenario/:serviceInstanceId/:fileId" element={errorWrapper(DeployScenario)()} />
             <Route
               path="scenarios/:scenarioId/*"
               element={(
@@ -183,18 +183,6 @@ const Index = () => {
             <Route path="components/*" element={errorWrapper(IndexComponents)()} />
             <Route
               path="workspaces/custom_dashboards/*"
-              element={(
-                <ProtectedRoute
-                  checks={[{
-                    action: ACTIONS.ACCESS,
-                    subject: SUBJECTS.DASHBOARDS,
-                  }]}
-                  Component={errorWrapper(IndexCustomDashboard)()}
-                />
-              )}
-            />
-            <Route
-              path="workspaces/custom_dashboards/:customDashboardId/*"
               element={(
                 <ProtectedRoute
                   checks={[{

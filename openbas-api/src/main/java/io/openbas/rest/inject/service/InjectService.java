@@ -1,17 +1,18 @@
 package io.openbas.rest.inject.service;
 
+import static io.openbas.database.model.CollectExecutionStatus.COLLECTING;
+import static io.openbas.database.model.ExecutionStatus.*;
 import static io.openbas.database.model.InjectorContract.CONTRACT_ELEMENT_CONTENT_KEY_TARGETED_PROPERTY;
 import static io.openbas.database.model.Payload.PAYLOAD_EXECUTION_ARCH.*;
+import static io.openbas.database.specification.InjectSpecification.*;
 import static io.openbas.helper.StreamHelper.fromIterable;
 import static io.openbas.helper.StreamHelper.iterableToSet;
 import static io.openbas.utils.AgentUtils.isPrimaryAgent;
 import static io.openbas.utils.FilterUtilsJpa.computeFilterGroupJpa;
-import static io.openbas.utils.InjectorContractUtils.buildCombinationsAttackPatternPlatformsArchitectures;
 import static io.openbas.utils.StringUtils.duplicateString;
 import static io.openbas.utils.pagination.SearchUtilsJpa.computeSearchJpa;
 import static java.time.Instant.now;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,7 +48,7 @@ import io.openbas.utils.mapper.InjectMapper;
 import io.openbas.utils.mapper.InjectStatusMapper;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.Resource;
-import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Subquery;
 import jakarta.transaction.Transactional;
@@ -104,6 +105,8 @@ public class InjectService {
   private SecurityExpression getAmbientSecurityExpression() {
     return ((SecurityExpressionHandler) methodSecurityExpressionHandler).getSecurityExpression();
   }
+
+  // -- CRUD --
 
   public Inject createInject(
       @Nullable final Exercise exercise,
@@ -172,7 +175,7 @@ public class InjectService {
     }
 
     // verify if inject is not manual/sms/emails...
-    if (this.canApplyAssetGroupToInject(inject)) {
+    if (this.canApplyTargetType(inject, TargetType.ASSETS_GROUPS)) {
       // add default asset groups
       inject.setAssetGroups(
           this.tagRuleService.applyTagRuleToInjectCreation(
@@ -196,6 +199,45 @@ public class InjectService {
         .orElseThrow(() -> new ElementNotFoundException("Inject not found with id: " + injectId));
   }
 
+  /**
+   * Builds an Inject object based on the provided InjectorContract, title, description and enabled
+   *
+   * @param injectorContract the InjectorContract associated with the Inject
+   * @param title the title of the Inject
+   * @param description the description of the Inject
+   * @param enabled indicates whether the Inject is enabled or not
+   * @return the inject object built
+   */
+  public Inject buildInject(
+      InjectorContract injectorContract, String title, String description, Boolean enabled) {
+    Inject inject = new Inject();
+    inject.setTitle(title);
+    inject.setDescription(description);
+    inject.setInjectorContract(injectorContract);
+    inject.setDependsDuration(0L);
+    inject.setEnabled(enabled);
+    inject.setContent(
+        InjectorContractContentUtils.getDynamicInjectorContractFieldsForInject(injectorContract));
+    return inject;
+  }
+
+  /**
+   * Builds a technical Inject object from the provided InjectorContract and AttackPattern.
+   *
+   * @param injectorContract the InjectorContract to build the Inject from
+   * @param identifier the AttackPattern or Vulnerability associated with the Inject
+   * @param name the AttackPattern or Vulnerability associated with the Inject
+   * @return the built Inject object
+   */
+  public Inject buildTechnicalInject(
+      InjectorContract injectorContract, String identifier, String name) {
+    return buildInject(
+        injectorContract,
+        String.format("[%s] %s - %s", identifier, name, injectorContract.getLabels().get("en")),
+        null,
+        true);
+  }
+
   @Transactional(rollbackOn = Exception.class)
   public void deleteAllByIds(List<String> injectIds) {
     if (!CollectionUtils.isEmpty(injectIds)) {
@@ -215,6 +257,30 @@ public class InjectService {
     }
   }
 
+  /**
+   * Save all injects given as params
+   *
+   * @param injects the injects to save
+   */
+  @Transactional(rollbackOn = Exception.class)
+  public List<Inject> saveAll(List<Inject> injects) {
+    if (!CollectionUtils.isEmpty(injects)) {
+      return injectRepository.saveAll(injects);
+    }
+    // empty collection
+    return injects;
+  }
+
+  // -- SPECIFIC GETTER --
+
+  public List<Inject> getExecutedAndNotFinished() {
+    return this.injectRepository.findAll(
+        hasStatus(List.of(SUCCESS, ERROR, MAYBE_PREVENTED, PARTIAL, MAYBE_PARTIAL_PREVENTED))
+            .and(hasCollectingStatus(List.of(COLLECTING)))
+            .and(fromRunningSimulation()));
+  }
+
+  // -- ASSETS --
   public List<AssetToExecute> resolveAllAssetsToExecute(@NotNull final Inject inject) {
     List<AssetToExecute> assetToExecutes = new ArrayList<>();
 
@@ -369,27 +435,27 @@ public class InjectService {
     }
   }
 
-  /**
-   * Check if asset can be applied to a specific inject (will return false for Manual/Email...
-   * injects)
-   *
-   * @param inject
-   * @return
-   */
-  public boolean canApplyAssetGroupToInject(final Inject inject) {
-
-    JsonNode jsonNode = null;
-    try {
-      jsonNode = mapper.readTree(inject.getInjectorContract().orElseThrow().getContent());
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException("Unable to injector contract", e);
+  public boolean canApplyTargetType(final Inject inject, TargetType targetType) {
+    Optional<InjectorContract> ic = inject.getInjectorContract();
+    if (ic.isEmpty()) {
+      return false;
     }
-    return !StreamSupport.stream(jsonNode.get("fields").spliterator(), false)
-        .filter(
-            contractElement ->
-                contractElement.get("type").asText().equals(ContractFieldType.AssetGroup.label))
-        .toList()
-        .isEmpty();
+    return injectorContractService.checkTargetSupport(ic.get(), targetType);
+  }
+
+  public void assignAssetGroup(final Inject inject, List<AssetGroup> assetGroups) {
+    if (this.canApplyTargetType(inject, TargetType.ASSETS_GROUPS)) {
+      inject.setAssetGroups(assetGroups);
+    } else if (this.canApplyTargetType(inject, TargetType.ASSETS)) {
+      inject.setAssets(
+          assetGroupService.assetsFromAssetGroupMap(assetGroups).values().stream()
+              .flatMap(endpoints -> endpoints.stream().map(e -> (Asset) e))
+              .collect(Collectors.toSet())
+              .stream()
+              .toList());
+    } else {
+      log.warn("Injector contract does not support either Asset Groups or Assets.");
+    }
   }
 
   private Inject findAndDuplicateInject(String id) {
@@ -1017,11 +1083,14 @@ public class InjectService {
         return cb.conjunction();
       }
 
-      // Check if both are null - automatically granted
-      Path<Object> scenarioPath = root.get("scenario");
-      Path<Object> simulationPath = root.get("exercise");
-      // Check if both are null
-      Predicate bothNull = cb.and(cb.isNull(scenarioPath), cb.isNull(simulationPath));
+      // Ensure distinct results (joins/subqueries can otherwise produce duplicates).
+      query.distinct(true);
+
+      // Use the id expressions for parents (safer than testing the entity path itself)
+      Expression<String> scenarioIdPath = root.get("scenario").get("id");
+      Expression<String> exerciseIdPath = root.get("exercise").get("id");
+      // Check if both are null -> atomic testing case
+      Predicate bothParentsNull = cb.and(cb.isNull(scenarioIdPath), cb.isNull(exerciseIdPath));
 
       // Get allowed grant types
       List<Grant.GRANT_TYPE> allowedGrantTypes = grantType.andHigher();
@@ -1051,26 +1120,20 @@ public class InjectService {
               Grant.GRANT_RESOURCE_TYPE.ATOMIC_TESTING,
               allowedGrantTypes);
 
-      // Check if inject's scenario ID is accessible (null is OK)
-      Predicate scenarioAccessible =
-          cb.or(cb.isNull(scenarioPath), scenarioPath.get("id").in(accessibleScenarios));
-      // Check if inject's simulation ID is accessible (null is OK)
-      Predicate simulationAccessible =
-          cb.or(cb.isNull(simulationPath), simulationPath.get("id").in(accessibleSimulations));
-      // When both are null, check if user has atomic testing grants
-      // Assuming inject has an ID that should be in the atomic testing grants
-      Predicate atomicTestingAccessible =
-          cb.and(bothNull, root.get("id").in(accessibleAtomicTestings));
-
-      // Inject is accessible if:
-      // 1. Both are null AND user has atomic testing grant for this inject, OR
-      // 2. User is granted on the non-null scenario/exercise linked to this inject
       return cb.or(
-          atomicTestingAccessible,
+          // Case 1: atomic test (no parents, direct grant required)
           cb.and(
-              cb.not(bothNull), // At least one is not null
-              scenarioAccessible,
-              simulationAccessible));
+              cb.isNull(root.get("scenario")),
+              cb.isNull(root.get("exercise")),
+              root.get("id").in(accessibleAtomicTestings)),
+          // Case 2: linked to a scenario, and user has access
+          cb.and(
+              cb.isNotNull(root.get("scenario")),
+              root.get("scenario").get("id").in(accessibleScenarios)),
+          // Case 3: linked to a simulation, and user has access
+          cb.and(
+              cb.isNotNull(root.get("exercise")),
+              root.get("exercise").get("id").in(accessibleSimulations)));
     };
   }
 
@@ -1087,18 +1150,18 @@ public class InjectService {
     return scenario.getInjects().stream()
         .map(inject -> inject.getInjectorContract().map(ic -> Map.entry(inject, ic)))
         .flatMap(Optional::stream)
+        // Only keep attack patterns that specify both platform and architecture.
+        // Other cases should be reviewed depending on the injector contract source: vulnerability,
+        // placeholder, other
+        .filter(
+            entry ->
+                entry.getValue().getArch() != null
+                    && entry.getValue().getPlatforms() != null
+                    && entry.getValue().getPlatforms().length > 0)
         .map(
             entry -> {
               Inject inject = entry.getKey();
               InjectorContract ic = entry.getValue();
-
-              // Check if this injectContract has not arch and platforms
-              if (ic.getArch() == null
-                  || ic.getPlatforms() == null
-                  || ic.getPlatforms().length == 0) {
-                return Map.entry(
-                    inject, new HashSet<Triple<String, Endpoint.PLATFORM_TYPE, String>>());
-              }
 
               // Extract archs
               Set<String> archs =
@@ -1126,5 +1189,52 @@ public class InjectService {
                   merged.addAll(v2);
                   return v1;
                 }));
+  }
+
+  /**
+   * Builds the complete set of required combinations of TTPs and platform-architecture pairs.
+   *
+   * @param attackPatterns list of attack patterns (TTPs)
+   * @param platforms set of platforms
+   * @param architectures set of architecture
+   * @return set of (TTP × Platform × Architecture) combinations
+   */
+  public static Set<Triple<String, Endpoint.PLATFORM_TYPE, String>>
+      buildCombinationsAttackPatternPlatformsArchitectures(
+          List<AttackPattern> attackPatterns,
+          Set<Endpoint.PLATFORM_TYPE> platforms,
+          Set<String> architectures) {
+
+    if (attackPatterns == null || platforms == null || architectures == null) {
+      return Collections.emptySet();
+    }
+
+    return attackPatterns.stream()
+        .flatMap(
+            attackPattern -> {
+              String id = attackPattern.getId();
+              return platforms.stream()
+                  .flatMap(
+                      platform ->
+                          architectures.stream()
+                              .map(architecture -> Triple.of(id, platform, architecture)));
+            })
+        .collect(Collectors.toSet());
+  }
+
+  /**
+   * Retrieve the payload linked to an inject
+   *
+   * @param injectId to search payload
+   * @return found payload
+   * @throws ElementNotFoundException if inject or payload is not found
+   */
+  public Payload getPayloadByInjectId(String injectId) {
+    Inject inject = inject(injectId);
+    return inject
+        .getPayload()
+        .orElseThrow(
+            () ->
+                new ElementNotFoundException("payload not found on inject with id : " + injectId));
   }
 }

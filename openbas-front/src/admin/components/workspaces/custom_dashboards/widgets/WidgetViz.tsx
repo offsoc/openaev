@@ -1,9 +1,8 @@
 import { memo, useContext, useEffect, useState } from 'react';
 
-import { attackPaths, count, entities, series } from '../../../../../actions/dashboards/dashboard-action';
 import { useFormatter } from '../../../../../components/i18n';
 import Loader from '../../../../../components/Loader';
-import { type EsAttackPath, type EsBase, type EsSeries } from '../../../../../utils/api-types';
+import { type EsAttackPath, type EsBase, type EsSeries, type ListConfiguration } from '../../../../../utils/api-types';
 import { type StructuralHistogramWidget, type Widget } from '../../../../../utils/api-types-custom';
 import { CustomDashboardContext } from '../CustomDashboardContext';
 import AttackPathContextLayer from './viz/attack_paths/AttackPathContextLayer';
@@ -22,6 +21,12 @@ interface WidgetTemporalVizProps {
   setFullscreen: (fullscreen: boolean) => void;
 }
 
+export type SerieData = {
+  x?: string;
+  y?: string;
+  meta?: string;
+};
+
 const WidgetViz = ({ widget, fullscreen, setFullscreen }: WidgetTemporalVizProps) => {
   const { t } = useFormatter();
   const [seriesVizData, setSeriesVizData] = useState<EsSeries[]>([]);
@@ -31,7 +36,7 @@ const WidgetViz = ({ widget, fullscreen, setFullscreen }: WidgetTemporalVizProps
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
-  const { customDashboardParameters } = useContext(CustomDashboardContext);
+  const { customDashboardParameters, fetchCount, fetchSeries, fetchEntities, fetchAttackPaths } = useContext(CustomDashboardContext);
 
   const fetchData = <T extends EsSeries[] | EsBase[] | EsAttackPath[] | number>(
     fetchFunction: (id: string, p: Record<string, string | undefined>) => Promise<{ data: T }>,
@@ -52,17 +57,17 @@ const WidgetViz = ({ widget, fullscreen, setFullscreen }: WidgetTemporalVizProps
     setLoading(true);
     switch (widget.widget_type) {
       case 'attack-path': {
-        fetchData(attackPaths, setAttackPathsVizData);
+        fetchData(fetchAttackPaths, setAttackPathsVizData);
         break;
       }
       case 'number':
-        fetchData(count, setNumberVizData);
+        fetchData(fetchCount, setNumberVizData);
         break;
       case 'list':
-        fetchData(entities, setEntitiesVizData);
+        fetchData(fetchEntities, setEntitiesVizData);
         break;
       default:
-        fetchData(series, setSeriesVizData);
+        fetchData(fetchSeries, setSeriesVizData);
     }
   }, [widget, customDashboardParameters]);
 
@@ -109,6 +114,7 @@ const WidgetViz = ({ widget, fullscreen, setFullscreen }: WidgetTemporalVizProps
     case 'vertical-barchart':
       return (
         <VerticalBarChart
+          widgetId={widget.widget_id}
           widgetConfig={widget.widget_config}
           series={seriesData}
           errorMessage={errorMessage}
@@ -117,27 +123,29 @@ const WidgetViz = ({ widget, fullscreen, setFullscreen }: WidgetTemporalVizProps
     case 'horizontal-barchart':
       return (
         <HorizontalBarChart
+          widgetId={widget.widget_id}
           widgetConfig={widget.widget_config}
           series={seriesData}
         />
       );
     case 'line':
-      return <LineChart series={seriesData} />;
+      return <LineChart widgetId={widget.widget_id} series={seriesData} />;
     case 'donut': {
       // The seriesLimit is set to 1 for the donut.
       const data = seriesData[0].data;
       return (
         <DonutChart
-          labels={data.map(s => s?.x || t('-'))}
-          series={data.map(s => s?.y || 0)}
+          widgetId={widget.widget_id}
+          datas={data}
         />
       );
     }
     case 'list':
-      return (<ListWidget elements={entitiesVizData} config={widget.widget_config} />);
+      return (<ListWidget elements={entitiesVizData} widgetConfig={widget.widget_config as ListConfiguration} />);
     case 'number':
       return (
         <NumberWidget
+          widgetId={widget.widget_id}
           data={numberVizData}
         />
       );

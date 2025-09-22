@@ -77,9 +77,19 @@ public interface ExerciseRepository
               + "left join injects as inject on e.exercise_id = inject.inject_exercise and inject.inject_enabled = 'true' "
               + "left join injects_statuses as status on inject.inject_id = status.status_inject and status.status_name != 'PENDING'"
               + "left join scenarios_exercises as se on e.exercise_id = se.exercise_id "
-              + "where e.exercise_status = 'RUNNING' group by e.exercise_id, se.scenario_id having count(status) = count(inject);",
+              + "where e.exercise_status = 'RUNNING' group by e.exercise_id, se.scenario_id having count(status) = count(inject) "
+              + "and count(inject) filter (where inject.inject_collect_status IS NULL OR inject.inject_collect_status = 'COMPLETED') = count(inject);",
       nativeQuery = true)
   List<Exercise> thatMustBeFinished();
+
+  @Query(
+      """
+    SELECT e FROM Exercise e, Scenario s
+    WHERE e.scenario.id = s.id AND s.id = :#{#exercise.scenario.id}
+      AND e.launchOrder > :#{#exercise.launchOrder}
+    ORDER BY e.launchOrder ASC LIMIT 1
+    """)
+  Optional<Exercise> following(@Param("exercise") Exercise exercise);
 
   /**
    * Get all the expectations created from a date

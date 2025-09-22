@@ -4,6 +4,7 @@ import io.openbas.database.model.*;
 import io.openbas.rest.exception.ElementNotFoundException;
 import io.openbas.rest.inject.service.InjectService;
 import io.openbas.rest.inject.service.InjectStatusService;
+import io.openbas.rest.injector_contract.InjectorContractService;
 import jakarta.validation.constraints.NotNull;
 import java.util.EnumSet;
 import java.util.Set;
@@ -26,6 +27,11 @@ public class PermissionService {
           ResourceType.ATTACK_PATTERN,
           ResourceType.KILL_CHAIN_PHASE,
           ResourceType.ORGANIZATION,
+          // INJECTOR_CONTRACT is present here AND in the RESOURCES_USING_PARENT_PERMISSION list
+          // because it's a resource that's fully OPEN except if it's linked to a payload.
+          // In the code, w check parent permission before checking open resources, so if the IC is
+          // linked to a payload, the resource type will change to PAYLOAD and the permission will
+          // be checked against that payload.
           ResourceType.INJECTOR_CONTRACT); // TODO review open apis see issue/3789
 
   private static final EnumSet<ResourceType> RESOURCES_MANAGED_BY_GRANTS =
@@ -37,12 +43,14 @@ public class PermissionService {
           ResourceType.ATOMIC_TESTING);
 
   private static final EnumSet<ResourceType> RESOURCES_USING_PARENT_PERMISSION =
-      EnumSet.of(ResourceType.INJECT, ResourceType.NOTIFICATION_RULE);
+      EnumSet.of(
+          ResourceType.INJECT, ResourceType.NOTIFICATION_RULE, ResourceType.INJECTOR_CONTRACT);
 
   private final GrantService grantService;
   private final InjectService injectService;
   private final InjectStatusService injectStatusService;
   private final NotificationRuleService notificationRuleService;
+  private final InjectorContractService injectorContractService;
 
   @Transactional
   public boolean hasPermission(
@@ -82,18 +90,13 @@ public class PermissionService {
 
     // check if the user has the capa first
     boolean hasPermission = hasCapaPermission(user, resourceType, action);
-    if (hasCapaPermission(user, resourceType, action)) {
+
+    // check if the user
+    if (hasPermission) {
       return true;
     }
-
     // if the user doesn't have the capa check if the user has a grant
-    if (!hasPermission || RESOURCES_MANAGED_BY_GRANTS.contains(resourceType)) {
-      if (Action.DUPLICATE.equals(action)) {
-        // to duplicate we need the "create" capa but also read on the resource
-        return hasCapaPermission(user, resourceType, action)
-            && hasGrantPermission(user, resourceId, resourceType, Action.READ);
-      }
-
+    if (RESOURCES_MANAGED_BY_GRANTS.contains(resourceType)) {
       return hasGrantPermission(user, resourceId, resourceType, action);
     }
     return false;
@@ -131,8 +134,7 @@ public class PermissionService {
       return true;
     }
 
-    if (RESOURCES_OPEN.contains(resourceType)
-        && (Action.READ.equals(action) || Action.SEARCH.equals(action))) {
+    if (isOpenResource(resourceType, action)) {
       return true;
     }
 
@@ -160,10 +162,21 @@ public class PermissionService {
                           "NotificationRule not found with id:" + resourceId));
       Action parentAction = Action.READ; // FIXME permission should be linked to userid
       return new Target(notificationRule.getResourceId(), ResourceType.SCENARIO, parentAction);
+    } else if (resourceType == ResourceType.INJECTOR_CONTRACT) {
+      InjectorContract ic = injectorContractService.injectorContract(resourceId);
+      if (ic.getPayload() != null) {
+        return new Target(ic.getPayload().getId(), ResourceType.PAYLOAD, action);
+      }
+      return new Target(ic.getId(), ResourceType.INJECTOR_CONTRACT, action);
     }
     return new Target(resourceId, resourceType, action);
   }
 
   /** Used to return Parent resource information */
   private record Target(String resourceId, ResourceType resourceType, Action action) {}
+
+  public static boolean isOpenResource(ResourceType resourceType, Action action) {
+    return RESOURCES_OPEN.contains(resourceType)
+        && (Action.READ.equals(action) || Action.SEARCH.equals(action));
+  }
 }
