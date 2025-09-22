@@ -6,8 +6,9 @@ import io.openbas.aop.LogExecutionTime;
 import io.openbas.aop.RBAC;
 import io.openbas.api.detection_remediation.dto.DetectionRemediationAIOutput;
 import io.openbas.api.detection_remediation.dto.PayloadInput;
+import io.openbas.collectors.utils.CollectorsUtils;
 import io.openbas.database.model.*;
-import io.openbas.executors.crowdstrike.service.CrowdStrikeExecutorService;
+import io.openbas.rest.inject.service.InjectService;
 import io.openbas.rest.payload.form.DetectionRemediationInput;
 import io.openbas.service.detection_remediation.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class DetectionRemediationApi {
   private final DetectionRemediationService detectionRemediationService;
+  private final InjectService injectService;
 
   public static final String DETECTION_REMEDIATION_URI = "api/detection-remediations/ai";
 
@@ -102,20 +105,76 @@ public class DetectionRemediationApi {
     }
 
     return switch (collectorType) {
-      case CrowdStrikeExecutorService.CROWDSTRIKE_EXECUTOR_TYPE ->
+        case CollectorsUtils.CROWDSTRIKE ->
           detectionRemediationService.getRulesDetectionRemediationCrowdstrike(input);
 
-      case "openbas_microsoft_defender" ->
+      case CollectorsUtils.MICROSOFT_DEFENDER ->
           throw new ResponseStatusException(
               HttpStatus.NOT_IMPLEMENTED,
               "AI Webservice for collector type microsoft defender not implemented");
 
-      case "openbas_microsoft_sentinel" ->
+      case CollectorsUtils.MICROSOFT_SENTINEL ->
           throw new ResponseStatusException(
               HttpStatus.NOT_IMPLEMENTED,
               "AI Webservice for collector type microsoft sentinel not implemented");
       default ->
           throw new IllegalStateException("Collector :\"" + collectorType + "\" unsupported");
     };
+  }
+
+  @Operation(summary = "Get detection and remediation rule by inject using AI")
+  @ApiResponses(
+      value = {
+        @ApiResponse(responseCode = "200", description = "Return rules generated"),
+        @ApiResponse(
+            responseCode = "500",
+            description =
+                "Illegal value: Inject has not payload. "
+                    + "The feature should not be available for inject without payload. "
+                    + "Some inject like email has no payload and no inject contract"),
+        @ApiResponse(
+            responseCode = "500",
+            description = "Illegal value, AI Webservice available only for empty content"),
+        @ApiResponse(responseCode = "500", description = "Illegal value collector type unknow"),
+        @ApiResponse(responseCode = "500", description = "Enterprise Edition is not available"),
+        @ApiResponse(
+            responseCode = "501",
+            description = "AI Webservice for FileDrop or Executable File not implemented"),
+        @ApiResponse(
+            responseCode = "503",
+            description = "Web service is not deployed on this instance"),
+        @ApiResponse(
+            responseCode = "501",
+            description = "AI Webservice for collector type microsoft defender not implemented"),
+        @ApiResponse(
+            responseCode = "501",
+            description = "AI Webservice for collector type microsoft sentinel not implemented"),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Collector not found with type {collectorType}")
+      })
+  @LogExecutionTime
+  @RBAC(actionPerformed = Action.WRITE, resourceType = ResourceType.PAYLOAD)
+  @PostMapping("rules/inject/{injectId}/collector/{collectorType}")
+  public ResponseEntity<DetectionRemediationAIOutput>
+      postRuleDetectionRemediationByInjectIdAndCollectorType(
+          @PathVariable @NotBlank String injectId, @PathVariable @NotBlank String collectorType) {
+
+    Inject inject = injectService.inject(injectId);
+    Optional<Payload> payloadOptional = inject.getPayload();
+
+    if (payloadOptional.isEmpty())
+      throw new IllegalStateException("Illegal value: Inject has not payload");
+
+    Payload payload = payloadOptional.get();
+    List<DetectionRemediation> detectionRemediations = payload.getDetectionRemediations();
+    DetectionRemediation detectionRemediation =
+        detectionRemediationService.getOrCreateDetectionRemediationWithAIRulesByCollector(
+            detectionRemediations, payload, collectorType);
+
+    DetectionRemediationAIOutput detectionRemediationAIOutput =
+        DetectionRemediationAIOutput.builder().rules(detectionRemediation.getValues()).build();
+
+    return ResponseEntity.ok(detectionRemediationAIOutput);
   }
 }
