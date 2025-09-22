@@ -186,7 +186,6 @@ const PayloadPopover = ({ payload, onUpdate, onDelete, onDuplicate, disableUpdat
           handleClose={handleCloseEdit}
           editing
           initialValues={initialValues}
-          payloadUpdatedAt={payload.payload_updated_at}
         />
       </Drawer>
     </>

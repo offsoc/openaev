@@ -5,6 +5,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { postDetectionRemediationAIRulesCrowdstrike } from '../../../../actions/detection-remediation/detectionremediation-action';
 import CKEditor from '../../../../components/CKEditor';
 import { type Collector, type PayloadInput } from '../../../../utils/api-types';
+import { isNotEmptyField } from '../../../../utils/utils';
 import { hasSpecificDirtyField, payloadFormToPayloadInputForAI } from '../utils/payloadFormToPayloadInput';
 import typeChar from '../utils/typeChar';
 import DetectionRemediationInfo from './DetectionRemediationInfo';
@@ -66,9 +67,8 @@ const RemediationFormTab = ({
       }}
       >
         <div>
-          <DetectionRemediationInfo
-            detectionRemediation={watch(fieldName)}
-          />
+          {isNotEmptyField(watch(fieldName)?.content)
+            && <DetectionRemediationInfo author_rule={watch(fieldName).author_rule} />}
         </div>
         <DetectionRemediationUseAriane
           collectorType={tab.collector_type}

@@ -16,10 +16,7 @@ const Loader = () => {
       {!hasFiligranLoader ? (
         <FiligranLoader height={24} color={theme?.palette?.grey.A100} />
       ) : (
-        <CircularProgress
-          size={24}
-          thickness={1}
-        />
+        <CircularProgress size={24} thickness={1} />
       )}
     </>
   );
