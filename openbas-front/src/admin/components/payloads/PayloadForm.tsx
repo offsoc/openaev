@@ -12,7 +12,7 @@ import EEChip from '../common/entreprise_edition/EEChip';
 import CommandsFormTab from './form/CommandsFormTab';
 import GeneralFormTab from './form/GeneralFormTab';
 import OutputFormTab from './form/OutputFormTab';
-import RemediationFormTab from './form/RemediationFormTab';
+import RemediationFormTabs from './form/RemediationFormTabs';
 
 interface Props {
   onSubmit: SubmitHandler<PayloadCreateInput>;
@@ -249,7 +249,7 @@ const PayloadForm = ({
         )}
 
         {activeTab === 'Remediation' && (
-          <RemediationFormTab payloadId={initialValues?.payload_id} />
+          <RemediationFormTabs payloadId={initialValues?.payload_id} />
         )}
 
         <div style={{

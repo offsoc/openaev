@@ -4,7 +4,7 @@ import static io.openbas.api.detection_remediation.DetectionRemediationApi.DETEC
 
 import io.openbas.aop.LogExecutionTime;
 import io.openbas.aop.RBAC;
-import io.openbas.api.detection_remediation.dto.DetectionRemediationOutput;
+import io.openbas.api.detection_remediation.dto.DetectionRemediationAIOutput;
 import io.openbas.api.detection_remediation.dto.PayloadInput;
 import io.openbas.database.model.*;
 import io.openbas.executors.crowdstrike.service.CrowdStrikeExecutorService;
@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -68,30 +69,30 @@ public class DetectionRemediationApi {
             responseCode = "501",
             description = "AI Webservice for collector type microsoft sentinel not implemented")
       })
-  @PostMapping("rules")
+  @PostMapping("/rules/{collectorType}")
   @LogExecutionTime
   @RBAC(actionPerformed = Action.WRITE, resourceType = ResourceType.PAYLOAD)
-  public ResponseEntity<DetectionRemediationOutput> postRuleDetectionRemediation(
-      @Valid @RequestBody PayloadInput input) {
+  public ResponseEntity<DetectionRemediationAIOutput> postRuleDetectionRemediation(
+      @PathVariable @NotBlank final String collectorType, @Valid @RequestBody PayloadInput input) {
     if (input.getType().equals(FileDrop.FILE_DROP_TYPE)
         || input.getType().equals(Executable.EXECUTABLE_TYPE))
       throw new ResponseStatusException(
           HttpStatus.NOT_IMPLEMENTED,
           "AI Webservice for FileDrop or Executable File not implemented");
 
-    String rules = getRulesDetectionRemediationByCollector(input);
+    String rules = getRulesDetectionRemediationByCollector(input, collectorType);
 
-    DetectionRemediationOutput detectionRemediationOutput =
-        DetectionRemediationOutput.builder().rules(rules).build();
+    DetectionRemediationAIOutput detectionRemediationAIOutput =
+        DetectionRemediationAIOutput.builder().rules(rules).build();
 
-    return ResponseEntity.ok(detectionRemediationOutput);
+    return ResponseEntity.ok(detectionRemediationAIOutput);
   }
 
-  private String getRulesDetectionRemediationByCollector(PayloadInput input) {
+  private String getRulesDetectionRemediationByCollector(PayloadInput input, String collectorType) {
 
     Optional<DetectionRemediationInput> currentDetectionRemediation =
         input.getDetectionRemediations().stream()
-            .filter(remediation -> remediation.getCollectorType().equals(input.getCollectorType()))
+            .filter(remediation -> remediation.getCollectorType().equals(collectorType))
             .findFirst();
 
     if (currentDetectionRemediation.isPresent()) {
@@ -100,7 +101,7 @@ public class DetectionRemediationApi {
         throw new IllegalStateException("AI Webservice available only for empty content");
     }
 
-    return switch (input.getCollectorType()) {
+    return switch (collectorType) {
       case CrowdStrikeExecutorService.CROWDSTRIKE_EXECUTOR_TYPE ->
           detectionRemediationService.getRulesDetectionRemediationCrowdstrike(input);
 
@@ -114,8 +115,7 @@ public class DetectionRemediationApi {
               HttpStatus.NOT_IMPLEMENTED,
               "AI Webservice for collector type microsoft sentinel not implemented");
       default ->
-          throw new IllegalStateException(
-              "Collector :\"" + input.getCollectorType() + "\" unsupported");
+          throw new IllegalStateException("Collector :\"" + collectorType + "\" unsupported");
     };
   }
 }
