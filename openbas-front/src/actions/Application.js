@@ -128,3 +128,4 @@ export const logout = () => (dispatch) => {
   const ref = simpleCall('/logout');
   return ref.then(() => dispatch({ type: Constants.IDENTITY_LOGOUT_SUCCESS }));
 };
+
