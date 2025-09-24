@@ -10,7 +10,9 @@ import io.openbas.collectors.utils.CollectorsUtils;
 import io.openbas.database.model.*;
 import io.openbas.rest.inject.service.InjectService;
 import io.openbas.rest.payload.form.DetectionRemediationInput;
+import io.openbas.rest.payload.form.DetectionRemediationOutput;
 import io.openbas.service.detection_remediation.*;
+import io.openbas.utils.mapper.PayloadMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -156,7 +158,7 @@ public class DetectionRemediationApi {
   @LogExecutionTime
   @RBAC(actionPerformed = Action.WRITE, resourceType = ResourceType.PAYLOAD)
   @PostMapping("rules/inject/{injectId}/collector/{collectorType}")
-  public ResponseEntity<DetectionRemediationAIOutput>
+  public ResponseEntity<DetectionRemediationOutput>
       postRuleDetectionRemediationByInjectIdAndCollectorType(
           @PathVariable @NotBlank String injectId, @PathVariable @NotBlank String collectorType) {
 
@@ -172,9 +174,8 @@ public class DetectionRemediationApi {
         detectionRemediationService.getOrCreateDetectionRemediationWithAIRulesByCollector(
             detectionRemediations, payload, collectorType);
 
-    DetectionRemediationAIOutput detectionRemediationAIOutput =
-        DetectionRemediationAIOutput.builder().rules(detectionRemediation.getValues()).build();
+    DetectionRemediationOutput detectionRemediationOutput = PayloadMapper.toDetectionRemediationOutput(detectionRemediation);
 
-    return ResponseEntity.ok(detectionRemediationAIOutput);
+    return ResponseEntity.ok(detectionRemediationOutput);
   }
 }
