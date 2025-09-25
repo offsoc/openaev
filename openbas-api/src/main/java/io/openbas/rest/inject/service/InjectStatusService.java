@@ -155,9 +155,15 @@ public class InjectStatusService {
     return ExecutionTrace.from(base, structuredOutput);
   }
 
-  private void computeExecutionTraceStatusIfNeeded(
+  protected void computeExecutionTraceStatusIfNeeded(
       InjectStatus injectStatus, ExecutionTrace executionTrace, Agent agent) {
-    if (agent != null && executionTrace.getAction().equals(ExecutionTraceAction.COMPLETE)) {
+
+    // if the execution trace is COMPLETED with a status different than INFO we need don't to
+    // compute
+    if (agent != null
+        && executionTrace.getAction().equals(ExecutionTraceAction.COMPLETE)
+        && executionTrace.getStatus() != null
+        && ExecutionTraceStatus.INFO.equals(executionTrace.getStatus())) {
       ExecutionTraceStatus traceStatus =
           convertExecutionStatus(
               computeStatus(
