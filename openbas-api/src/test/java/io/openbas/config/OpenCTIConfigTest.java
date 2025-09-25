@@ -3,7 +3,7 @@ package io.openbas.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.openbas.IntegrationTest;
-import io.openbas.injectors.opencti.config.OpenCTIConfig;
+import io.openbas.opencti.config.OpenCTIConfig;
 import io.openbas.utils.mockConfig.WithMockOpenCTIConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

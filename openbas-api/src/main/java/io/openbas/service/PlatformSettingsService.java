@@ -19,7 +19,7 @@ import io.openbas.engine.EngineService;
 import io.openbas.executors.caldera.config.CalderaExecutorConfig;
 import io.openbas.expectation.ExpectationPropertiesConfig;
 import io.openbas.helper.RabbitMQHelper;
-import io.openbas.injectors.opencti.config.OpenCTIConfig;
+import io.openbas.opencti.config.OpenCTIConfig;
 import io.openbas.rest.exception.BadRequestException;
 import io.openbas.rest.settings.PreviewFeature;
 import io.openbas.rest.settings.form.*;

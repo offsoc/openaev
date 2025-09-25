@@ -7,7 +7,7 @@ import io.openbas.database.model.*;
 import io.openbas.execution.ExecutableInject;
 import io.openbas.executors.Injector;
 import io.openbas.injectors.opencti.model.CaseContent;
-import io.openbas.injectors.opencti.service.OpenCTIService;
+import io.openbas.opencti.service.OpenCTIService;
 import io.openbas.model.ExecutionProcess;
 import io.openbas.model.Expectation;
 import io.openbas.model.expectation.ManualExpectation;

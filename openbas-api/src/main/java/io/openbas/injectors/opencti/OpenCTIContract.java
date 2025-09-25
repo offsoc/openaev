@@ -17,7 +17,7 @@ import io.openbas.database.model.Variable.VariableType;
 import io.openbas.injector_contract.*;
 import io.openbas.injector_contract.fields.ContractElement;
 import io.openbas.injector_contract.fields.ContractExpectations;
-import io.openbas.injectors.opencti.config.OpenCTIConfig;
+import io.openbas.opencti.config.OpenCTIConfig;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;

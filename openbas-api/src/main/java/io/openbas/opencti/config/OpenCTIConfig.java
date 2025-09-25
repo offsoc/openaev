@@ -1,4 +1,4 @@
-package io.openbas.injectors.opencti.config;
+package io.openbas.opencti.config;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

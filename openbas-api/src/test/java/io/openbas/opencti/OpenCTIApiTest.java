@@ -1,11 +1,10 @@
-package io.openbas.octi;
+package io.openbas.opencti;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.openbas.IntegrationTest;
-import io.openbas.opencti.OpenCTIApi;
 import io.openbas.rest.attack_pattern.AttackPatternApi;
 import io.openbas.rest.inject.InjectApi;
 import io.openbas.rest.inject.ScenarioInjectApi;
