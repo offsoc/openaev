@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.openbas.opencti.connectors.ConnectorBase;
+import io.openbas.opencti.connectors.ConnectorType;
 import java.util.List;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -62,7 +63,7 @@ public class RegisterConnector implements Mutation {
     private String name;
 
     @JsonProperty("type")
-    private String type;
+    private ConnectorType type;
 
     @JsonProperty("scope")
     private List<String> scope;
