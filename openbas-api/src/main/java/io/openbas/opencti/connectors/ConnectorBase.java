@@ -1,18 +1,17 @@
 package io.openbas.opencti.connectors;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
+import java.util.List;
+import lombok.Data;
 
+@Data
 public class ConnectorBase {
-  @Getter
-  @Setter(AccessLevel.PROTECTED)
-  private String remoteUrl;
-  @Getter
-  @Setter(AccessLevel.PROTECTED)
+  private String url;
   private String authToken;
-
-  public void register() {
-
-  }
+  private String id;
+  private String name;
+  private String type;
+  private List<String> scope;
+  private boolean onlyContextual = false;
+  private boolean playbookCompatible = false;
+  private String listenCallbackURI;
 }

@@ -1,17 +1,20 @@
 package io.openbas.opencti.client.mutations;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.core5.http.io.entity.StringEntity;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.openbas.opencti.connectors.ConnectorBase;
 import java.util.List;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
-@NoArgsConstructor
-public class RegisterConnector extends MutationBase {
+@RequiredArgsConstructor
+public class RegisterConnector implements Mutation {
+  private final ConnectorBase connector;
   private final String queryText =
-    """
+      """
     mutation RegisterConnector($input: RegisterConnectorInput) {
       registerConnector(input: $input) {
         id
@@ -42,20 +45,47 @@ public class RegisterConnector extends MutationBase {
     return this.queryText;
   }
 
-  public class Input {
+  @Override
+  public JsonNode getVariables() throws JsonProcessingException {
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectNode node = mapper.createObjectNode();
+    node.set("input", mapper.valueToTree(toInput(connector)));
+    return node;
+  }
+
+  @Data
+  private static class Input {
     @JsonProperty("id")
     private String id;
+
     @JsonProperty("name")
     private String name;
+
     @JsonProperty("type")
     private String type;
+
     @JsonProperty("scope")
     private List<String> scope;
+
     @JsonProperty("only_contextual")
     private boolean onlyContextual;
+
     @JsonProperty("playbook_compatible")
     private boolean playbookCompatible;
+
     @JsonProperty("listen_callback_uri")
     private String listenCallbackURI;
+  }
+
+  private Input toInput(ConnectorBase connector) {
+    Input input = new Input();
+    input.setId(connector.getId());
+    input.setName(connector.getName());
+    input.setType(connector.getType());
+    input.setScope(connector.getScope());
+    input.setOnlyContextual(connector.isOnlyContextual());
+    input.setPlaybookCompatible(connector.isPlaybookCompatible());
+    input.setListenCallbackURI(connector.getListenCallbackURI());
+    return input;
   }
 }
