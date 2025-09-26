@@ -17,10 +17,8 @@ import org.apache.hc.client5.http.ClientProtocolException;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.core5.http.*;
 import org.apache.hc.core5.http.io.HttpClientResponseHandler;
-import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.junit.jupiter.api.*;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,11 +39,8 @@ public class OpenCTIClientTest extends IntegrationTest {
     when(mockHttpClientFactory.httpClientCustom()).thenReturn(mockHttpClient);
   }
 
-  private ClassicHttpResponse getMockResponse(int statusCode, String responseBody) {
-    ClassicHttpResponse mock = Mockito.mock(ClassicHttpResponse.class);
-    when(mock.getEntity()).thenReturn(new StringEntity(responseBody));
-    when(mock.getCode()).thenReturn(statusCode);
-    return mock;
+  private OpenCTIClient.ExtractedData getMockResponse(int statusCode, String responseBody) {
+    return new OpenCTIClient.ExtractedData(statusCode, responseBody);
   }
 
   @Nested
@@ -76,7 +71,7 @@ public class OpenCTIClientTest extends IntegrationTest {
     public class WhenEndpointReturnsNOKStatus {
       @BeforeEach
       public void setup() throws IOException {
-        ClassicHttpResponse mockResponse =
+        OpenCTIClient.ExtractedData mockResponse =
             getMockResponse(
                 HttpStatus.SC_BAD_REQUEST,
                 """
@@ -114,7 +109,8 @@ public class OpenCTIClientTest extends IntegrationTest {
       public class WithNonJsonBody {
         @BeforeEach
         public void setup() throws IOException {
-          ClassicHttpResponse mockResponse = getMockResponse(HttpStatus.SC_OK, "What's this ???");
+          OpenCTIClient.ExtractedData mockResponse =
+              getMockResponse(HttpStatus.SC_OK, "What's this ???");
           when(mockHttpClient.execute(
                   (ClassicHttpRequest) any(), (HttpClientResponseHandler) any()))
               .thenReturn(mockResponse);
@@ -145,7 +141,7 @@ public class OpenCTIClientTest extends IntegrationTest {
       public class WithJsonBody {
         @BeforeEach
         public void setup() throws IOException {
-          ClassicHttpResponse mockResponse =
+          OpenCTIClient.ExtractedData mockResponse =
               getMockResponse(
                   HttpStatus.SC_OK,
                   """
@@ -182,7 +178,7 @@ public class OpenCTIClientTest extends IntegrationTest {
     public class WhenEndpointReturnsOKStatus {
       @BeforeEach
       public void setup() throws IOException {
-        ClassicHttpResponse mockResponse =
+        OpenCTIClient.ExtractedData mockResponse =
             getMockResponse(
                 HttpStatus.SC_OK,
                 """

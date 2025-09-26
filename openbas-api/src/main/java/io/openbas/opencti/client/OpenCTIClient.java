@@ -18,8 +18,6 @@ import org.apache.hc.client5.http.ClientProtocolException;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.core5.http.ClassicHttpRequest;
-import org.apache.hc.core5.http.ClassicHttpResponse;
-import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.springframework.stereotype.Component;
@@ -50,40 +48,44 @@ public class OpenCTIClient {
     return execute(req);
   }
 
+  public record ExtractedData(int status, String body) {}
+
   private Response execute(ClassicHttpRequest request) throws IOException {
     try (CloseableHttpClient client = httpClientFactory.httpClientCustom()) {
-      try (ClassicHttpResponse classicHttpResponse =
-          client.execute(request, classicResponse -> classicResponse)) {
-        try {
-          JsonNode node = mapper.readTree(EntityUtils.toString(classicHttpResponse.getEntity()));
-          if (!node.has("errors") && !node.has("data")) {
-            throw new JsonMappingException(
-                null, "Response body does not conform to a GraphQL response.");
-          }
-          Response response = mapper.treeToValue(node, Response.class);
-          response.setStatus(classicHttpResponse.getCode());
-          return response;
-        } catch (JsonProcessingException e) {
-          // if the response body cannot be deserialised as GraphQL response
-          // then we need to cope a little bit and provide as much context as possible
-          Response response = new Response();
-          response.setStatus(classicHttpResponse.getCode());
-          Error err = new Error();
-          err.setMessage(e.getMessage());
-          response.setErrors(List.of(err));
-          // set the data field as the full response body as a string
-          ObjectNode objNode = mapper.createObjectNode();
-          objNode.set(
-              "response_body",
-              mapper.convertValue(
-                  EntityUtils.toString(classicHttpResponse.getEntity()), JsonNode.class));
-          response.setData(objNode);
-          return response;
+      ExtractedData ed =
+          client.execute(
+              request,
+              classicResponse ->
+                  new ExtractedData(
+                      classicResponse.getCode(),
+                      EntityUtils.toString(classicResponse.getEntity())));
+      try {
+        JsonNode node = mapper.readTree(ed.body);
+        if (!node.has("errors") && !node.has("data")) {
+          throw new JsonMappingException(
+              null, "Response body does not conform to a GraphQL response.");
         }
-      } catch (IOException | ParseException e) {
-        throw new ClientProtocolException(
-            "Unexpected response for request on: " + request.getRequestUri(), e);
+        Response response = mapper.treeToValue(node, Response.class);
+        response.setStatus(ed.status);
+        return response;
+      } catch (JsonProcessingException e) {
+        // if the response body cannot be deserialised as GraphQL response
+        // then we need to cope a little bit and provide as much context as possible
+        Response response = new Response();
+        response.setStatus(ed.status);
+        Error err = new Error();
+        err.setMessage(e.getMessage());
+        response.setErrors(List.of(err));
+        // set the data field as the full response body as a string
+        ObjectNode objNode = mapper.createObjectNode();
+        objNode.set("response_body", mapper.convertValue(ed.body, JsonNode.class));
+        response.setData(objNode);
+        return response;
       }
+
+    } catch (IOException e) {
+      throw new ClientProtocolException(
+          "Unexpected response for request on: " + request.getRequestUri(), e);
     }
   }
 }
