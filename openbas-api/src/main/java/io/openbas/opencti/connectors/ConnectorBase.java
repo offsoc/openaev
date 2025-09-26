@@ -9,6 +9,7 @@ public abstract class ConnectorBase {
   private String authToken;
   private String id;
   private List<String> scope;
+  private boolean auto = false;
   private boolean onlyContextual = false;
   private boolean playbookCompatible = false;
   private String listenCallbackURI;

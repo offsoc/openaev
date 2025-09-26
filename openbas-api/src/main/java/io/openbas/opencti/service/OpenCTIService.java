@@ -7,11 +7,11 @@ import io.openbas.database.model.DataAttachment;
 import io.openbas.database.model.Execution;
 import io.openbas.database.model.ExecutionTraceAction;
 import io.openbas.opencti.client.OpenCTIClient;
-import io.openbas.opencti.client.Response;
 import io.openbas.opencti.client.mutations.CreateCase;
 import io.openbas.opencti.client.mutations.CreateReport;
 import io.openbas.opencti.client.mutations.Mutation;
 import io.openbas.opencti.client.mutations.RegisterConnector;
+import io.openbas.opencti.client.response.Response;
 import io.openbas.opencti.config.OpenCTIConfig;
 import io.openbas.opencti.connectors.ConnectorBase;
 import java.io.IOException;
@@ -52,7 +52,7 @@ public class OpenCTIService {
     if (response.getStatus() == HttpStatus.SC_OK) {
       execution.addTrace(
           getNewSuccessTrace(
-              "Case created (" + response.getResponseBody() + ")", ExecutionTraceAction.COMPLETE));
+              "Case created (" + response.getData() + ")", ExecutionTraceAction.COMPLETE));
     } else {
       execution.addTrace(getNewErrorTrace("Fail to POST", ExecutionTraceAction.COMPLETE));
     }
@@ -68,8 +68,7 @@ public class OpenCTIService {
     if (response.getStatus() == HttpStatus.SC_OK) {
       execution.addTrace(
           getNewSuccessTrace(
-              "Report created (" + response.getResponseBody() + ")",
-              ExecutionTraceAction.COMPLETE));
+              "Report created (" + response.getData() + ")", ExecutionTraceAction.COMPLETE));
     } else {
       execution.addTrace(getNewErrorTrace("Fail to POST", ExecutionTraceAction.COMPLETE));
     }

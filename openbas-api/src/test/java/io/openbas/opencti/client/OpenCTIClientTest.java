@@ -1,5 +1,6 @@
 package io.openbas.opencti.client;
 
+import static net.javacrumbs.jsonunit.assertj.JsonAssertions.assertThatJson;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -8,7 +9,10 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.openbas.IntegrationTest;
 import io.openbas.authorisation.HttpClientFactory;
+import io.openbas.opencti.client.response.Response;
+import io.openbas.opencti.client.response.fields.Error;
 import java.io.IOException;
+import java.util.List;
 import org.apache.hc.client5.http.ClientProtocolException;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.core5.http.*;
@@ -72,16 +76,104 @@ public class OpenCTIClientTest extends IntegrationTest {
     public class WhenEndpointReturnsNOKStatus {
       @BeforeEach
       public void setup() throws IOException {
-        ClassicHttpResponse mockResponse = getMockResponse(HttpStatus.SC_BAD_REQUEST, "");
+        ClassicHttpResponse mockResponse =
+            getMockResponse(
+                HttpStatus.SC_BAD_REQUEST,
+                """
+                {
+                  "errors": [
+                    {
+                      "message": "it didnt go well"
+                    }
+                  ]
+                }
+                """);
         when(mockHttpClient.execute((ClassicHttpRequest) any(), (HttpClientResponseHandler) any()))
             .thenReturn(mockResponse);
       }
 
       @Test
       @DisplayName("It returns the response as-is")
-      public void itReturnsResponseAsIs() throws ClientProtocolException, JsonProcessingException {
+      public void itReturnsResponseAsIs() throws IOException {
         Response response = client.execute(baseUrl, authToken, "fake mutation", null);
         assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_BAD_REQUEST);
+        assertThat(response.isError()).isTrue();
+        Error err = new Error();
+        err.setMessage("it didnt go well");
+        List<Error> expectedErrors = List.of(err);
+        assertThat(response.getErrors()).isEqualTo(expectedErrors);
+        assertThat(response.getData()).isNull();
+      }
+    }
+
+    @Nested
+    @DisplayName("When endpoint returns non GraphQL standard response")
+    public class WhenEndpointReturnsNonGraphQLStandardResponse {
+      @Nested
+      @DisplayName("With non JSON body")
+      public class WithNonJsonBody {
+        @BeforeEach
+        public void setup() throws IOException {
+          ClassicHttpResponse mockResponse = getMockResponse(HttpStatus.SC_OK, "What's this ???");
+          when(mockHttpClient.execute(
+                  (ClassicHttpRequest) any(), (HttpClientResponseHandler) any()))
+              .thenReturn(mockResponse);
+        }
+
+        @Test
+        @DisplayName(
+            "It returns a response stating that json parsing failed along with original body")
+        public void itReturnsResponseAsIs() throws IOException {
+          Response response = client.execute(baseUrl, authToken, "fake mutation", null);
+          assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_OK);
+          assertThat(response.isError()).isTrue();
+          assertThat(response.getErrors().size()).isEqualTo(1);
+          assertThat(response.getErrors().get(0).getMessage())
+              .contains("Unrecognized token 'What'");
+          assertThatJson(response.getData())
+              .isEqualTo(
+                  """
+                          {
+                            "response_body": "What's this ???"
+                          }
+                          """);
+        }
+      }
+
+      @Nested
+      @DisplayName("With JSON body")
+      public class WithJsonBody {
+        @BeforeEach
+        public void setup() throws IOException {
+          ClassicHttpResponse mockResponse =
+              getMockResponse(
+                  HttpStatus.SC_OK,
+                  """
+                            {
+                              "some_key": "some_value"
+                            }
+                            """);
+          when(mockHttpClient.execute(
+                  (ClassicHttpRequest) any(), (HttpClientResponseHandler) any()))
+              .thenReturn(mockResponse);
+        }
+
+        @Test
+        @DisplayName(
+            "It returns a response stating that json parsing failed along with original body")
+        public void itReturnsResponseAsIs() throws IOException {
+          Response response = client.execute(baseUrl, authToken, "fake mutation", null);
+          assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_OK);
+          assertThat(response.isError()).isTrue();
+          assertThatJson(response.getData())
+              .isEqualTo(
+                  """
+                {"response_body":"{\\n  \\"some_key\\": \\"some_value\\"\\n}\\n"}
+                """);
+          assertThat(response.getErrors().size()).isEqualTo(1);
+          assertThat(response.getErrors().get(0).getMessage())
+              .contains("Response body does not conform to a GraphQL response.");
+        }
       }
     }
 
@@ -90,7 +182,16 @@ public class OpenCTIClientTest extends IntegrationTest {
     public class WhenEndpointReturnsOKStatus {
       @BeforeEach
       public void setup() throws IOException {
-        ClassicHttpResponse mockResponse = getMockResponse(HttpStatus.SC_OK, "good");
+        ClassicHttpResponse mockResponse =
+            getMockResponse(
+                HttpStatus.SC_OK,
+                """
+                {
+                  "data": {
+                    "outcome": "good"
+                  }
+                }
+                """);
         when(mockHttpClient.execute((ClassicHttpRequest) any(), (HttpClientResponseHandler) any()))
             .thenReturn(mockResponse);
       }
@@ -100,6 +201,15 @@ public class OpenCTIClientTest extends IntegrationTest {
       public void itReturnsExpectedStructure() throws IOException {
         Response response = client.execute(baseUrl, authToken, "fake mutation", null);
         assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_OK);
+        assertThatJson(response.getData())
+            .isEqualTo(
+                """
+          {
+              "outcome": "good"
+          }
+          """);
+        assertThat(response.getErrors().size()).isEqualTo(0);
+        assertThat(response.isError()).isFalse();
       }
     }
   }
