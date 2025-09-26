@@ -4,6 +4,7 @@ import static io.openbas.utils.ExecutionTraceUtils.convertExecutionAction;
 import static io.openbas.utils.ExecutionTraceUtils.convertExecutionStatus;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import io.openbas.aop.lock.Lock;
 import io.openbas.aop.lock.LockResourceType;
 import io.openbas.database.model.*;
@@ -155,6 +156,7 @@ public class InjectStatusService {
     return ExecutionTrace.from(base, structuredOutput);
   }
 
+  @VisibleForTesting
   protected void computeExecutionTraceStatusIfNeeded(
       InjectStatus injectStatus, ExecutionTrace executionTrace, Agent agent) {
 
