@@ -7,10 +7,7 @@ import io.openbas.database.model.DataAttachment;
 import io.openbas.database.model.Execution;
 import io.openbas.database.model.ExecutionTraceAction;
 import io.openbas.opencti.client.OpenCTIClient;
-import io.openbas.opencti.client.mutations.CreateCase;
-import io.openbas.opencti.client.mutations.CreateReport;
-import io.openbas.opencti.client.mutations.Mutation;
-import io.openbas.opencti.client.mutations.RegisterConnector;
+import io.openbas.opencti.client.mutations.*;
 import io.openbas.opencti.client.response.Response;
 import io.openbas.opencti.config.OpenCTIConfig;
 import io.openbas.opencti.connectors.ConnectorBase;
@@ -39,6 +36,11 @@ public class OpenCTIService {
 
   public Response registerConnector(ConnectorBase connector) throws IOException {
     Mutation mut = new RegisterConnector(connector);
+    return openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
+  }
+
+  public Response pingConnector(ConnectorBase connector) throws IOException {
+    Mutation mut = new Ping(connector);
     return openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
   }
 
