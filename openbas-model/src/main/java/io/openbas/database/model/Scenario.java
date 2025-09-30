@@ -285,26 +285,13 @@ public class Scenario implements GrantableBase {
   @JsonIgnore
   public List<Variable> variables = new ArrayList<>();
 
-  @ArraySchema(schema = @Schema(type = "string"))
-  @OneToMany(fetch = FetchType.LAZY)
-  @JoinTable(
+  @ElementCollection(fetch = FetchType.EAGER)
+  @CollectionTable(
       name = "scenarios_exercises",
-      joinColumns = @JoinColumn(name = "scenario_id"),
-      inverseJoinColumns = @JoinColumn(name = "exercise_id"))
-  @JsonSerialize(using = MultiIdListDeserializer.class)
+      joinColumns = @JoinColumn(name = "scenario_id"))
+  @Column(name = "exercise_id", nullable = false)
   @JsonProperty("scenario_exercises")
-  @Setter(NONE)
-  private List<Exercise> exercises;
-
-  public void setExercises(List<Exercise> exercises) {
-    if (exercises != null) {
-      for (Exercise exercise : exercises) {
-        if (exercise != null) exercise.setUpdatedAt(now());
-      }
-    }
-    this.exercises = exercises;
-    this.setUpdatedAt(now());
-  }
+  private List<String> exercises = new ArrayList<>();
 
   @Getter
   @Column(name = "scenario_lessons_anonymized")
