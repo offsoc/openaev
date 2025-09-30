@@ -1,6 +1,7 @@
 package io.openbas.opencti.connectors.service;
 
 import io.openbas.IntegrationTest;
+import io.openbas.opencti.errors.ConnectorError;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +12,7 @@ public class OpenCTIConnectorServiceTest extends IntegrationTest {
   @Autowired OpenCTIConnectorService openCTIConnectorService;
 
   @Test
-  public void test() throws IOException {
+  public void test() throws IOException, ConnectorError {
     openCTIConnectorService.registerAllConnectors();
   }
 }

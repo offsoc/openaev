@@ -81,6 +81,72 @@ public class RegisterConnector implements Mutation {
     private String listenCallbackURI;
   }
 
+  @Data
+  public static class ResponsePayload {
+    @JsonProperty("registerConnector")
+    private RegisterConnectorContent registerConnectorContent;
+
+    @Data
+    public static class RegisterConnectorContent {
+      @JsonProperty("id")
+      private String id;
+
+      @JsonProperty("connector_state")
+      private ObjectNode connectorState;
+
+      @JsonProperty("config")
+      private ConfigNode config;
+
+      @JsonProperty("connector_user_id")
+      private String connectorUserId;
+
+      @Data
+      public static class ConfigNode {
+        @JsonProperty("connection")
+        private ConnectionNode connection;
+
+        @JsonProperty("listen")
+        private String listen;
+
+        @JsonProperty("listen_routing")
+        private String listenRouting;
+
+        @JsonProperty("listen_exchange")
+        private String listenExchange;
+
+        @JsonProperty("push")
+        private String push;
+
+        @JsonProperty("push_routing")
+        private String pushRouting;
+
+        @JsonProperty("push_exchange")
+        private String pushExchange;
+
+        @Data
+        public static class ConnectionNode {
+          @JsonProperty("host")
+          private String host;
+
+          @JsonProperty("vhost")
+          private String vhost;
+
+          @JsonProperty("use_ssl")
+          private boolean useSsl;
+
+          @JsonProperty("port")
+          private int port;
+
+          @JsonProperty("user")
+          private String user;
+
+          @JsonProperty("pass")
+          private String pass;
+        }
+      }
+    }
+  }
+
   private Input toInput(ConnectorBase connector) {
     Input input = new Input();
     input.setId(connector.getId());

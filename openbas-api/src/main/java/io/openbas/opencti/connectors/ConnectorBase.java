@@ -1,5 +1,6 @@
 package io.openbas.opencti.connectors;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;
 import lombok.Data;
 
@@ -15,6 +16,8 @@ public abstract class ConnectorBase {
   private String listenCallbackURI;
 
   public abstract String getName();
+
+  @JsonIgnore private boolean registered = false;
 
   public abstract ConnectorType getType();
 }

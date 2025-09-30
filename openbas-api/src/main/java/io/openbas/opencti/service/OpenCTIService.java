@@ -3,47 +3,87 @@ package io.openbas.opencti.service;
 import static io.openbas.database.model.ExecutionTrace.getNewErrorTrace;
 import static io.openbas.database.model.ExecutionTrace.getNewSuccessTrace;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.openbas.database.model.DataAttachment;
 import io.openbas.database.model.Execution;
 import io.openbas.database.model.ExecutionTraceAction;
 import io.openbas.opencti.client.OpenCTIClient;
 import io.openbas.opencti.client.mutations.*;
 import io.openbas.opencti.client.response.Response;
+import io.openbas.opencti.client.response.fields.Error;
 import io.openbas.opencti.config.OpenCTIConfig;
 import io.openbas.opencti.connectors.ConnectorBase;
+import io.openbas.opencti.errors.ConnectorError;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.core5.http.HttpStatus;
-import org.apache.hc.core5.http.ParseException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
+@RequiredArgsConstructor
 public class OpenCTIService {
-  private OpenCTIConfig classicOpenCTIConfig;
-  private OpenCTIClient openCTIClient;
+  private final OpenCTIConfig classicOpenCTIConfig;
+  private final OpenCTIClient openCTIClient;
+  private final ObjectMapper mapper;
 
-  @Autowired
-  public void setConfig(OpenCTIConfig config) {
-    this.classicOpenCTIConfig = config;
-  }
-
-  @Autowired
-  public void setOpenCTIClient(OpenCTIClient openCTIClient) {
-    this.openCTIClient = openCTIClient;
-  }
-
-  public Response registerConnector(ConnectorBase connector) throws IOException {
+  public RegisterConnector.ResponsePayload registerConnector(ConnectorBase connector)
+      throws IOException, ConnectorError {
     Mutation mut = new RegisterConnector(connector);
-    return openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
+    Response r = openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
+    if (r.isError()) {
+      throw new ConnectorError(
+          """
+        Failed to register connector %s with OpenCTI at %s
+        Errors: %s
+        """
+              .formatted(
+                  connector.getName(),
+                  connector.getUrl(),
+                  r.getErrors().stream().map(Error::toString).collect(Collectors.joining("\n"))));
+    } else {
+      RegisterConnector.ResponsePayload payload =
+          mapper.convertValue(r.getData(), RegisterConnector.ResponsePayload.class);
+      log.info(
+          "Registered connector {} with OpenCTI at {}", connector.getName(), connector.getUrl());
+      // side effect on transient state
+      connector.setRegistered(true);
+      return payload;
+    }
   }
 
-  public Response pingConnector(ConnectorBase connector) throws IOException {
+  public Ping.ResponsePayload pingConnector(ConnectorBase connector)
+      throws IOException, ConnectorError {
+    if (!connector.isRegistered()) {
+      throw new ConnectorError(
+          "Cannot ping connector %s with OpenCTI at %s: connector hasn't registered yet. Try again later."
+              .formatted(connector.getName(), connector.getUrl()));
+    }
+
     Mutation mut = new Ping(connector);
-    return openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
+    Response r = openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
+    if (r.isError()) {
+      throw new ConnectorError(
+          """
+        Failed to ping connector %s with OpenCTI at %s
+        Errors: %s
+        """
+              .formatted(
+                  connector.getName(),
+                  connector.getUrl(),
+                  r.getErrors().stream().map(Error::toString).collect(Collectors.joining("\n"))));
+    } else {
+      Ping.ResponsePayload payload = mapper.convertValue(r.getData(), Ping.ResponsePayload.class);
+      log.info("Pinged connector {} with OpenCTI at {}", connector.getName(), connector.getUrl());
+      return payload;
+    }
   }
 
+  // TODO: support attachments; argument: `List<DataAttachment> attachments`
   public void createCase(
       Execution execution, String name, String description, List<DataAttachment> attachments)
       throws Exception {
@@ -60,9 +100,10 @@ public class OpenCTIService {
     }
   }
 
+  // TODO: support attachments; argument: `List<DataAttachment> attachments`
   public void createReport(
       Execution execution, String name, String description, List<DataAttachment> attachments)
-      throws IOException, ParseException {
+      throws IOException {
     Mutation mut = new CreateReport(name, description, Instant.now());
     Response response =
         openCTIClient.execute(

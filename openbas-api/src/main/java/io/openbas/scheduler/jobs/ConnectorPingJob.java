@@ -1,6 +1,8 @@
 package io.openbas.scheduler.jobs;
 
+import io.openbas.opencti.client.mutations.Ping;
 import io.openbas.opencti.connectors.service.OpenCTIConnectorService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.DisallowConcurrentExecution;
@@ -18,6 +20,6 @@ public class ConnectorPingJob implements Job {
 
   @Override
   public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
-    openCTIConnectorService.pingAllConnectors();
+    List<Ping.ResponsePayload> payloads = openCTIConnectorService.pingAllConnectors();
   }
 }
