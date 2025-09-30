@@ -35,7 +35,7 @@ public class OpenCTIConnectorService {
         log.warn("An error occurred in the backend.", e);
       } catch (IOException e) {
         log.warn(
-            "An technical error occurred while registering connector {} with OpenCTI at {}",
+            "A technical error occurred while registering connector {} with OpenCTI at {}",
             c.getName(),
             c.getUrl(),
             e);
@@ -59,7 +59,7 @@ public class OpenCTIConnectorService {
         log.warn("An error occurred in the backend.", e);
       } catch (IOException e) {
         log.warn(
-            "An technical error occurred while registering connector {} with OpenCTI at {}",
+            "A technical error occurred while registering connector {} with OpenCTI at {}",
             c.getName(),
             c.getUrl(),
             e);

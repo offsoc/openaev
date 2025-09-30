@@ -11,6 +11,7 @@ import io.openbas.IntegrationTest;
 import io.openbas.authorisation.HttpClientFactory;
 import io.openbas.opencti.client.response.Response;
 import io.openbas.opencti.client.response.fields.Error;
+import io.openbas.utils.fixtures.opencti.MutationFixture;
 import java.io.IOException;
 import java.util.List;
 import org.apache.hc.client5.http.ClientProtocolException;
@@ -193,8 +194,8 @@ public class OpenCTIClientTest extends IntegrationTest {
       }
 
       @Test
-      @DisplayName("It returns expected structure")
-      public void itReturnsExpectedStructure() throws IOException {
+      @DisplayName("It returns expected structure with separate text and variables")
+      public void itReturnsExpectedStructureWithSeparateTextAndVariables() throws IOException {
         Response response = client.execute(baseUrl, authToken, "fake mutation", null);
         assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_OK);
         assertThatJson(response.getData())
@@ -204,6 +205,23 @@ public class OpenCTIClientTest extends IntegrationTest {
               "outcome": "good"
           }
           """);
+        assertThat(response.getErrors().size()).isEqualTo(0);
+        assertThat(response.isError()).isFalse();
+      }
+
+      @Test
+      @DisplayName("It returns expected structure with opaque Mutation")
+      public void itReturnsExpectedStructureWithOpaqueMutation() throws IOException {
+        Response response =
+            client.execute(baseUrl, authToken, MutationFixture.getDefaultMutation());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_OK);
+        assertThatJson(response.getData())
+            .isEqualTo(
+                """
+                  {
+                      "outcome": "good"
+                  }
+                  """);
         assertThat(response.getErrors().size()).isEqualTo(0);
         assertThat(response.isError()).isFalse();
       }

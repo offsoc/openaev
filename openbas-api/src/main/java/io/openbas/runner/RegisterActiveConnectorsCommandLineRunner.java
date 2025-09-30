@@ -4,11 +4,13 @@ import io.openbas.opencti.connectors.service.OpenCTIConnectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
 @RequiredArgsConstructor
+@Profile("!test")
 public class RegisterActiveConnectorsCommandLineRunner implements CommandLineRunner {
   private final OpenCTIConnectorService openCTIConnectorService;
 
