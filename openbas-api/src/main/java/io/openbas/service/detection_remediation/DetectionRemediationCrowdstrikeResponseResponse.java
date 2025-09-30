@@ -11,7 +11,8 @@ import lombok.Setter;
 @Schema(
     description =
         "Response containing detection rules and recommended remediation actions for CrowdStrike")
-public class DetectionRemediationCrowdstrikeResponse {
+public class DetectionRemediationCrowdstrikeResponseResponse
+    implements DetectionRemediationAIResponse {
 
   @Schema(description = "Whether the request succeeded", example = "true")
   Boolean success;

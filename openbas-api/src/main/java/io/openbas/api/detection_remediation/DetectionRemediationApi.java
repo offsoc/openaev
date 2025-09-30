@@ -6,7 +6,6 @@ import io.openbas.aop.LogExecutionTime;
 import io.openbas.aop.RBAC;
 import io.openbas.api.detection_remediation.dto.DetectionRemediationAIOutput;
 import io.openbas.api.detection_remediation.dto.PayloadInput;
-import io.openbas.collectors.utils.CollectorsUtils;
 import io.openbas.database.model.*;
 import io.openbas.rest.inject.service.InjectService;
 import io.openbas.rest.payload.form.DetectionRemediationInput;
@@ -105,23 +104,7 @@ public class DetectionRemediationApi {
       if (!currentDetectionRemediation.get().getValues().isEmpty())
         throw new IllegalStateException("AI Webservice available only for empty content");
     }
-
-    return switch (collectorType) {
-        case CollectorsUtils.CROWDSTRIKE ->
-          detectionRemediationService.getRulesDetectionRemediationCrowdstrike(input);
-
-      case CollectorsUtils.MICROSOFT_DEFENDER ->
-          throw new ResponseStatusException(
-              HttpStatus.NOT_IMPLEMENTED,
-              "AI Webservice for collector type microsoft defender not implemented");
-
-      case CollectorsUtils.MICROSOFT_SENTINEL ->
-          throw new ResponseStatusException(
-              HttpStatus.NOT_IMPLEMENTED,
-              "AI Webservice for collector type microsoft sentinel not implemented");
-      default ->
-          throw new IllegalStateException("Collector :\"" + collectorType + "\" unsupported");
-    };
+    return detectionRemediationService.getRulesDetectionRemediationAI(input, collectorType);
   }
 
   @Operation(summary = "Get detection and remediation rule by inject using AI")
@@ -174,7 +157,8 @@ public class DetectionRemediationApi {
         detectionRemediationService.getOrCreateDetectionRemediationWithAIRulesByCollector(
             detectionRemediations, payload, collectorType);
 
-    DetectionRemediationOutput detectionRemediationOutput = PayloadMapper.toDetectionRemediationOutput(detectionRemediation);
+    DetectionRemediationOutput detectionRemediationOutput =
+        PayloadMapper.toDetectionRemediationOutput(detectionRemediation);
 
     return ResponseEntity.ok(detectionRemediationOutput);
   }
