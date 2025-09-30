@@ -36,6 +36,7 @@ import org.hibernate.annotations.UuidGenerator;
 @Table(name = "exercises")
 @EntityListeners(ModelBaseListener.class)
 @Grantable(Grant.GRANT_RESOURCE_TYPE.SIMULATION)
+@SQLRestriction("exercise_deleted_at IS NULL")
 public class Exercise implements GrantableBase {
 
   @Getter
@@ -198,6 +199,11 @@ public class Exercise implements GrantableBase {
   @Queryable(filterable = true, sortable = true)
   @UpdateTimestamp
   private Instant updatedAt = now();
+
+  @Getter
+  @Column(name = "exercise_deleted_at")
+  @JsonProperty("exercise_deleted_at")
+  private Instant deletedAt;
 
   // -- RELATION --
 

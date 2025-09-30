@@ -382,4 +382,11 @@ public interface ExerciseRepository
               + ";",
       nativeQuery = true)
   List<RawSimulation> findForIndexing(@Param("from") Instant from);
+
+  @Query(
+      value =
+          "UPDATE exercises e SET exercise_deleted_at = now() WHERE e.exercise_id = :exerciseId",
+      nativeQuery = true)
+  @Modifying
+  void softDeleteById(@Param("exerciseId") final String exerciseId);
 }

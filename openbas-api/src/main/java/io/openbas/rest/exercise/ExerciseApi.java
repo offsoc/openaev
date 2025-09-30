@@ -57,6 +57,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -106,6 +107,7 @@ public class ExerciseApi extends RestBehavior {
   private final ScenarioService scenarioService;
   private final UserService userService;
   private final PlatformSettingsService platformSettingsService;
+  private final ThreadPoolTaskScheduler taskScheduler;
 
   // endregion
 
@@ -512,7 +514,15 @@ public class ExerciseApi extends RestBehavior {
       resourceType = ResourceType.SIMULATION)
   @Transactional(rollbackFor = Exception.class)
   public void deleteExercise(@PathVariable String exerciseId) {
-    exerciseRepository.deleteById(exerciseId);
+    // FIXME Doing a soft delete only to do a hard one right after that is an ugly workaround.
+    // We should move to a proper soft delete everywhere
+    exerciseRepository.softDeleteById(exerciseId);
+    taskScheduler.execute(
+        () ->
+            exerciseRepository.delete(
+                exerciseRepository
+                    .findById(exerciseId)
+                    .orElseThrow(ElementNotFoundException::new)));
   }
 
   @GetMapping(EXERCISE_URI + "/{exerciseId}")
