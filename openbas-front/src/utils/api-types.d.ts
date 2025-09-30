@@ -2142,6 +2142,8 @@ export interface Exercise {
   /** @format date-time */
   exercise_created_at: string;
   exercise_custom_dashboard?: string;
+  /** @format date-time */
+  exercise_deleted_at?: string;
   exercise_description?: string;
   exercise_documents?: string[];
   /** @format date-time */
