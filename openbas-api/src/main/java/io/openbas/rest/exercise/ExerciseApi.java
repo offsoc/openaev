@@ -516,13 +516,14 @@ public class ExerciseApi extends RestBehavior {
   public void deleteExercise(@PathVariable String exerciseId) {
     // FIXME Doing a soft delete only to do a hard one right after that is an ugly workaround.
     // We should move to a proper soft delete everywhere
-    exerciseRepository.softDeleteById(exerciseId);
-    taskScheduler.execute(
-        () ->
-            exerciseRepository.delete(
-                exerciseRepository
-                    .findById(exerciseId)
-                    .orElseThrow(ElementNotFoundException::new)));
+    boolean softDeleted = exerciseRepository.softDeleteById(exerciseId) > 0;
+
+    // If no lines have been updated, we didn't found our exercise => exception
+    if (softDeleted) {
+      taskScheduler.execute(() -> exerciseRepository.deleteById(exerciseId));
+    } else {
+      throw new ElementNotFoundException();
+    }
   }
 
   @GetMapping(EXERCISE_URI + "/{exerciseId}")

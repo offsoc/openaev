@@ -388,5 +388,5 @@ public interface ExerciseRepository
           "UPDATE exercises e SET exercise_deleted_at = now() WHERE e.exercise_id = :exerciseId",
       nativeQuery = true)
   @Modifying
-  void softDeleteById(@Param("exerciseId") final String exerciseId);
+  int softDeleteById(@Param("exerciseId") final String exerciseId);
 }
