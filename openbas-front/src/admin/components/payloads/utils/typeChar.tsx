@@ -5,31 +5,35 @@ const typeChar = (
   submittedText: string,
   onComplete: (value: string) => void,
 ) => {
-  const lines = submittedText.split(/\n/);
-  let index = 0;
-  let buffer = '';
+  return new Promise((resolve) => {
+    const lines = submittedText.split(/\n/);
+    let index = 0;
+    let buffer = '';
 
-  const typeNext = () => {
-    if (index < lines.length) {
-      const line = lines[index];
-      buffer += line + '\n';
-      editor.setData(buffer);
+    const typeNext = () => {
+      if (index < lines.length) {
+        const line = lines[index];
+        buffer += line;
+        editor.setData(buffer);
 
-      const editingView = editor.editing.view;
-      const domRoot = editingView.getDomRoot();
-      if (domRoot) {
-        domRoot.scrollTop = domRoot.scrollHeight;
+        const editingView = editor.editing.view;
+        const domRoot = editingView.getDomRoot();
+        if (domRoot) {
+          domRoot.scrollTop = domRoot.scrollHeight;
+        }
+        index++;
+        setTimeout(typeNext, 150);
+        onComplete(buffer);
+      } else {
+        onComplete(buffer);
+        resolve(submittedText);
       }
-      index++;
-      setTimeout(typeNext, 150);
-    } else {
-      onComplete(buffer);
-    }
-  };
+    };
 
-  if (submittedText) {
-    typeNext();
-  }
+    if (submittedText) {
+      typeNext();
+    }
+  });
 };
 
 export default typeChar;

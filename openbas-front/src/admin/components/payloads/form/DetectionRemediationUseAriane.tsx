@@ -8,11 +8,14 @@ import useEnterpriseEdition from '../../../../utils/hooks/useEnterpriseEdition';
 import { isNotEmptyField } from '../../../../utils/utils';
 import EEChip from '../../common/entreprise_edition/EEChip';
 import EETooltip from '../../common/entreprise_edition/EETooltip';
-import useIsEligibleAriane from '../hook/useIsEligibleAriane';
+import useIsEligibleArianeCollector from '../hook/useIsEligibleArianeCollector';
+import useIsEligibleArianePayloadType from '../hook/useIsEligibleArianePayloadType';
 import Loader from '../Loader';
+import { useSnapshotRemediation } from '../utils/useSnapshotRemediation';
 
 export interface Props {
   collectorType: string;
+  payloadType?: string | undefined;
   detectionRemediationContent?: string;
   onSubmit: () => Promise<void>;
   isValidForm?: boolean;
@@ -20,10 +23,12 @@ export interface Props {
 
 const DetectionRemediationUseAriane = ({
   collectorType,
+  payloadType,
   detectionRemediationContent,
   onSubmit,
   isValidForm = true,
 }: Props) => {
+  const { snapshot } = useSnapshotRemediation();
   const { t } = useFormatter();
   // Fetch data
   const {
@@ -35,7 +40,8 @@ const DetectionRemediationUseAriane = ({
   const isAvailable = isEnterpriseEdition && enabled && configured;
 
   const [loading, setLoading] = useState(false);
-  const isEligibleAriane = useIsEligibleAriane(collectorType);
+  const isEligibleArianeCollector = useIsEligibleArianeCollector(collectorType);
+  const isEligibleArianePayload = useIsEligibleArianePayloadType(payloadType);
   const hasContent = isNotEmptyField(detectionRemediationContent);
 
   const handleClick = async () => {
@@ -52,20 +58,22 @@ const DetectionRemediationUseAriane = ({
   if (!isAvailable) {
     btnLabel = btnLabel + ' (EE)';
   }
-  if (!isEligibleAriane) {
+  if (!isEligibleArianeCollector) {
     btnLabel = btnLabel + t(' is not available for current collector');
+  } else if (!isEligibleArianePayload) {
+    btnLabel = btnLabel + t(' is not available for current payload type');
   } else if (!isValidForm) {
     btnLabel = btnLabel + t(' is locked until required fields are filled.');
   } else if (hasContent) {
     btnLabel = btnLabel + t(' is only available for empty content');
   }
 
-  const disabled = !isEligibleAriane || !isAvailable || hasContent || !isValidForm;
+  const disabled = !isEligibleArianeCollector || !isAvailable || hasContent || !isValidForm || !isEligibleArianePayload;
 
   return (
     <EETooltip forAi title={btnLabel}>
       <span>
-        {loading ? (
+        {(loading || snapshot?.get(collectorType)?.isLoading) ? (
           <Loader />
         ) : (
           <Button

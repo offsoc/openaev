@@ -120,7 +120,7 @@ public class DetectionRemediationCrowdstrikeResponse {
   public String formateRules() {
     StringBuilder builder = new StringBuilder();
     for (int i = 0; i < rules.size(); i++) {
-      builder.append("================================\n");
+      builder.append("<p>================================</p>\n");
       builder.append("<p>Rule ").append(i + 1).append("</p>\n");
       builder.append("<p>Rule Type: ").append(rules.get(i).ruleType).append("</p>\n");
       builder.append("<p>Action to take: ").append(rules.get(i).actionToTake).append("</p>\n");
@@ -141,7 +141,7 @@ public class DetectionRemediationCrowdstrikeResponse {
       builder
           .append("<li>Grandparent Image Filename: ")
           .append(rules.get(i).fieldConfiguration.grandparentImageFilename)
-          .append("</ul>\n");
+          .append("</li>\n");
       builder
           .append("<li>Grandparent Command Line: ")
           .append(rules.get(i).fieldConfiguration.grandparentCommandLine)

@@ -99,9 +99,7 @@ const RemediationFormTabs = ({ payloadId }: RemediationFormTabsProps) => {
                       />
                     ))}
                   </Tabs>
-                  {tabs.map(tab => (
-                    <RemediationFormTab key={tab.collector_id} tab={tab} activeTab={tabs[activeTab]} />
-                  ))}
+                  <RemediationFormTab key={'rem.' + tabs[activeTab].collector_type} activeTab={tabs[activeTab]} />
                 </>
               )}
         </>

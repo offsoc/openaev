@@ -2,7 +2,7 @@
 
 import type { ContractVariable } from '../actions/contract/contract';
 import type { ExpectationInput } from '../admin/components/common/injects/expectations/Expectation';
-import type * as ApiTypes from './api-types';
+import { type DetectionRemediation } from './api-types';
 
 interface BaseWidgetConfiguration {
   title?: string;
@@ -61,6 +61,7 @@ export type WidgetInput = Omit<ApiTypes.WidgetInput, 'widget_config'> & { widget
 export type Widget = Omit<ApiTypes.Widget, 'widget_config'> & { widget_config: DateHistogramWidget | StructuralHistogramWidget | ListConfiguration | FlatConfiguration };
 type PayloadCreateInputOmit = 'payload_type' | 'payload_source' | 'payload_status' | 'payload_created_at' | 'payload_id' | 'payload_updated_at' | 'payload_output_parsers';
 type PayloadCreateInputMore = {
+  remediations?: Map<string, DetectionRemediation>;
   payload_output_parsers?: (
     Omit<ApiTypes.OutputParser, 'output_parser_created_at' | 'output_parser_updated_at' | 'output_parser_id' | 'output_parser_contract_output_elements'>
     & {

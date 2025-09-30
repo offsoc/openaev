@@ -1,4 +1,4 @@
-import { type FieldNamesMarkedBoolean, type FieldValues } from 'react-hook-form';
+import { type FieldValues } from 'react-hook-form';
 
 import { type DetectionRemediation, type PayloadInput } from '../../../../utils/api-types';
 
@@ -38,7 +38,7 @@ export const payloadFormToPayloadInputForAI = (data: FieldValues): Partial<Paylo
   };
 };
 
-const trackedFields = [
+export const trackedFields = [
   'payload_name',
   'payload_type',
   'dns_resolution_hostname',
@@ -51,8 +51,32 @@ const trackedFields = [
   'payload_attack_patterns',
 ];
 
-export const hasSpecificDirtyField = (
-  dirtyFields: Partial<Readonly<FieldNamesMarkedBoolean<FieldValues>>>,
+export const mapSpecificField = (
+  fields: FieldValues,
+) => {
+  return new Map(trackedFields.map((key, index) => [key, fields[index]]));
+};
+
+function remediationOutdated(defaultValue: FieldValues, newValue: FieldValues): boolean {
+  return !(JSON.stringify(defaultValue) === JSON.stringify(newValue));
+}
+
+export const hasSpecificDirtyFieldAI = (
+  defaultFieldValue: FieldValues | undefined,
+  fieldsLastAIGeneration: FieldValues[] | undefined | null,
+  currentFieldValue?: FieldValues | undefined,
 ): boolean => {
-  return Object.keys(dirtyFields).some(field => trackedFields.includes(field));
+  if (!currentFieldValue) return false;
+
+  const current = mapSpecificField(currentFieldValue);
+  const source = fieldsLastAIGeneration?.length ? fieldsLastAIGeneration : defaultFieldValue;
+
+  return source
+    ? trackedFields.some((field, i) =>
+        remediationOutdated(
+          Array.isArray(source) ? source[i] : source[field],
+          current.get(field),
+        ),
+      )
+    : false;
 };

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { COLLECTOR_LIST_AI } from '../../../../constants/Entities';
 
-const useIsEligibleAriane = (collectorType: string) => {
+const useIsEligibleArianeCollector = (collectorType: string) => {
   const [isEligibleAriane, setIsEligibleAriane] = useState(false);
 
   useEffect(() => {
@@ -12,4 +12,4 @@ const useIsEligibleAriane = (collectorType: string) => {
   return isEligibleAriane;
 };
 
-export default useIsEligibleAriane;
+export default useIsEligibleArianeCollector;

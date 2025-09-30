@@ -2,10 +2,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button, Tab, Tabs } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { type FormEvent, type SyntheticEvent, useEffect, useState } from 'react';
-import { FormProvider, type SubmitHandler, useForm } from 'react-hook-form';
+import { type FieldValues, FormProvider, type SubmitHandler, useForm, useWatch } from 'react-hook-form';
 import { z, type ZodTypeAny } from 'zod';
 
 import { useFormatter } from '../../../components/i18n';
+import { type DetectionRemediation } from '../../../utils/api-types';
 import { type PayloadCreateInput } from '../../../utils/api-types-custom';
 import useEnterpriseEdition from '../../../utils/hooks/useEnterpriseEdition';
 import EEChip from '../common/entreprise_edition/EEChip';
@@ -13,6 +14,9 @@ import CommandsFormTab from './form/CommandsFormTab';
 import GeneralFormTab from './form/GeneralFormTab';
 import OutputFormTab from './form/OutputFormTab';
 import RemediationFormTabs from './form/RemediationFormTabs';
+import { hasSpecificDirtyFieldAI, trackedFields } from './utils/payloadFormToPayloadInput';
+import SnapshotRemediationProvider from './utils/SnapshotRemediationProvider';
+import { useSnapshotRemediation } from './utils/useSnapshotRemediation';
 
 interface Props {
   onSubmit: SubmitHandler<PayloadCreateInput>;
@@ -46,7 +50,7 @@ const PayloadForm = ({
     payload_prerequisites: [],
     payload_output_parsers: [],
     payload_execution_arch: 'ALL_ARCHITECTURES',
-    remediations: {},
+    remediations: new Map<string, DetectionRemediation>(),
   },
 }: Props) => {
   const { t } = useFormatter();
@@ -56,6 +60,7 @@ const PayloadForm = ({
     openDialog: openEnterpriseEditionDialog,
     setEEFeatureDetectedInfo,
   } = useEnterpriseEdition();
+  const { snapshot } = useSnapshotRemediation();
 
   const tabs = [{
     key: 'General',
@@ -190,7 +195,8 @@ const PayloadForm = ({
   });
   const {
     handleSubmit,
-    formState: { errors, isDirty, isSubmitting },
+    control,
+    formState: { errors, isDirty, isSubmitting, defaultValues, dirtyFields },
   } = methods;
 
   const getTabForField = (fieldName: string): string | undefined => {
@@ -214,69 +220,93 @@ const PayloadForm = ({
       handleSubmit(onSubmit)(e);
     }
   };
+  const trackedUseWatch = useWatch({
+    control,
+    name: trackedFields as unknown as keyof PayloadCreateInput,
+  });
+
+  useEffect(() => {
+    const remediations = methods.getValues('remediations') ?? {};
+    Object.entries(remediations).forEach(([key, value]) => {
+      const currentDetection = value as DetectionRemediation;
+      const fieldName = 'remediations.' + key as keyof PayloadCreateInput;
+
+      if (hasSpecificDirtyFieldAI(defaultValues, snapshot?.get(key)?.trackedFields, trackedUseWatch as FieldValues)) {
+        currentDetection.author_rule = currentDetection.author_rule !== 'HUMAN' ? 'AI_OUTDATED' : currentDetection.author_rule;
+
+        methods.setValue(fieldName, { ...currentDetection }, { shouldDirty: true });
+      } else if (Object.keys(dirtyFields).length !== 0 && currentDetection.author_rule === 'AI_OUTDATED') {
+        currentDetection.author_rule = 'AI';
+
+        methods.setValue(fieldName, { ...currentDetection }, { shouldDirty: true });
+      }
+    });
+  }, [trackedUseWatch]);
 
   return (
-    <FormProvider {...methods}>
-      <form
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: '100%',
-          gap: theme.spacing(2),
-        }}
-        id="payloadForm"
-        noValidate // disabled tooltip
-        onSubmit={handleSubmitWithoutDefault}
-      >
-        <Tabs
-          value={activeTab}
-          onChange={handleActiveTabChange}
-          aria-label="tabs for payload form"
+    <SnapshotRemediationProvider>
+      <FormProvider {...methods}>
+        <form
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100%',
+            gap: theme.spacing(2),
+          }}
+          id="payloadForm"
+          noValidate // disabled tooltip
+          onSubmit={handleSubmitWithoutDefault}
         >
-          {tabs.map(tab => <Tab key={tab.key} label={tab.label} value={tab.key} />)}
-        </Tabs>
-
-        {activeTab === 'General' && (
-          <GeneralFormTab />
-        )}
-
-        {activeTab === 'Commands' && (
-          <CommandsFormTab disabledPayloadType={editing} />
-        )}
-
-        {activeTab === 'Output' && (
-          <OutputFormTab />
-        )}
-
-        {activeTab === 'Remediation' && (
-          <RemediationFormTabs payloadId={initialValues?.payload_id} />
-        )}
-
-        <div style={{
-          marginTop: 'auto',
-          display: 'flex',
-          flexDirection: 'row-reverse',
-          gap: theme.spacing(1),
-        }}
-        >
-          <Button
-            variant="contained"
-            color="secondary"
-            type="submit"
-            disabled={isSubmitting || !isDirty}
+          <Tabs
+            value={activeTab}
+            onChange={handleActiveTabChange}
+            aria-label="tabs for payload form"
           >
-            {editing ? t('Update') : t('Create')}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleClose}
-            disabled={isSubmitting}
+            {tabs.map(tab => <Tab key={tab.key} label={tab.label} value={tab.key} />)}
+          </Tabs>
+
+          {activeTab === 'General' && (
+            <GeneralFormTab />
+          )}
+
+          {activeTab === 'Commands' && (
+            <CommandsFormTab disabledPayloadType={editing} />
+          )}
+
+          {activeTab === 'Output' && (
+            <OutputFormTab />
+          )}
+
+          {activeTab === 'Remediation' && (
+            <RemediationFormTabs payloadId={initialValues?.payload_id} />
+          )}
+
+          <div style={{
+            marginTop: 'auto',
+            display: 'flex',
+            flexDirection: 'row-reverse',
+            gap: theme.spacing(1),
+          }}
           >
-            {t('Cancel')}
-          </Button>
-        </div>
-      </form>
-    </FormProvider>
+            <Button
+              variant="contained"
+              color="secondary"
+              type="submit"
+              disabled={isSubmitting || !isDirty}
+            >
+              {editing ? t('Update') : t('Create')}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleClose}
+              disabled={isSubmitting}
+            >
+              {t('Cancel')}
+            </Button>
+          </div>
+        </form>
+      </FormProvider>
+    </SnapshotRemediationProvider>
   );
 };
 
