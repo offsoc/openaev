@@ -20,6 +20,12 @@ public class OpenCTIConnectorService {
   @Getter private final List<ConnectorBase> connectors;
   private final OpenCTIService openCTIService;
 
+  /**
+   * Register all loaded connectors. Does not crash if registering a connector raises an exception,
+   * but logs a warning.
+   *
+   * @return a list of response payloads for all connectors that successfully registered
+   */
   public List<RegisterConnector.ResponsePayload> registerAllConnectors() {
     List<RegisterConnector.ResponsePayload> payloads = new ArrayList<>();
     for (ConnectorBase c : connectors) {
@@ -38,6 +44,12 @@ public class OpenCTIConnectorService {
     return payloads;
   }
 
+  /**
+   * Ping all registered connectors. Does not crash if pinging a connector raises an exception, but
+   * logs a warning.
+   *
+   * @return a list of response payloads for all connectors that successfully pinged
+   */
   public List<Ping.ResponsePayload> pingAllConnectors() {
     List<Ping.ResponsePayload> payloads = new ArrayList<>();
     for (ConnectorBase c : connectors) {

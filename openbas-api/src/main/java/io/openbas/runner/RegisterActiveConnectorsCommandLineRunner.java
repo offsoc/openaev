@@ -1,8 +1,6 @@
 package io.openbas.runner;
 
-import io.openbas.opencti.client.mutations.RegisterConnector;
 import io.openbas.opencti.connectors.service.OpenCTIConnectorService;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -16,8 +14,7 @@ public class RegisterActiveConnectorsCommandLineRunner implements CommandLineRun
 
   @Override
   public void run(String... args) throws Exception {
-    List<RegisterConnector.ResponsePayload> payloads =
-        openCTIConnectorService.registerAllConnectors();
+    openCTIConnectorService.registerAllConnectors();
     log.info("Finished registering connectors.");
   }
 }
