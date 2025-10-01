@@ -13,7 +13,9 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class Ping implements Mutation {
-  private final ConnectorBase connector;
+  @Getter private final ConnectorBase connector;
+
+  @Getter
   private final String queryText =
       """
       mutation PingConnector($id: ID!, $state: String, $connectorInfo: ConnectorInfoInput ) {
@@ -31,11 +33,6 @@ public class Ping implements Mutation {
         }
       }
     """;
-
-  @Override
-  public String getQueryText() {
-    return this.queryText;
-  }
 
   @Override
   public JsonNode getVariables() throws JsonProcessingException {
@@ -89,21 +86,33 @@ public class Ping implements Mutation {
   @Getter
   private static class ConnectorInfo {
     @JsonProperty("run_and_terminate")
-    private boolean runAndTerminate = false;
+    private Boolean runAndTerminate = false;
 
     @JsonProperty("buffering")
-    private boolean buffering = false;
+    private Boolean buffering = false;
 
     @JsonProperty("queue_threshold")
-    private double queueThreshold = 500.0;
+    private Double queueThreshold = 0.0;
 
     @JsonProperty("queue_messages_size")
-    private double queueMessagesSize = 500.0;
+    private Double queueMessagesSize = 0.0;
 
     @JsonProperty("next_run_datetime")
     private Instant nextRunDatetime = null;
 
     @JsonProperty("last_run_datetime")
     private Instant lastRunDatetime = null;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == null) {
+      return false;
+    }
+
+    if (obj.getClass() != this.getClass()) {
+      return false;
+    }
+    return this.connector.equals(((Ping) obj).getConnector());
   }
 }

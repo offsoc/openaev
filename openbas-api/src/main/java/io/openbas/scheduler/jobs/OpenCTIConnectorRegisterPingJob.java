@@ -13,11 +13,11 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 @DisallowConcurrentExecution
-public class ConnectorPingJob implements Job {
+public class OpenCTIConnectorRegisterPingJob implements Job {
   private final OpenCTIConnectorService openCTIConnectorService;
 
   @Override
   public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
-    openCTIConnectorService.pingAllConnectors();
+    openCTIConnectorService.registerOrPingAllConnectors();
   }
 }

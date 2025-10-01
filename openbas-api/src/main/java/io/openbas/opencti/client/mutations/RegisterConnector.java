@@ -9,11 +9,14 @@ import io.openbas.opencti.connectors.ConnectorBase;
 import io.openbas.opencti.connectors.ConnectorType;
 import java.util.List;
 import lombok.Data;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class RegisterConnector implements Mutation {
-  private final ConnectorBase connector;
+  @Getter private final ConnectorBase connector;
+
+  @Getter
   private final String queryText =
       """
     mutation RegisterConnector($input: RegisterConnectorInput) {
@@ -40,11 +43,6 @@ public class RegisterConnector implements Mutation {
       }
     }
     """;
-
-  @Override
-  public String getQueryText() {
-    return this.queryText;
-  }
 
   @Override
   public JsonNode getVariables() throws JsonProcessingException {
@@ -158,5 +156,17 @@ public class RegisterConnector implements Mutation {
     input.setPlaybookCompatible(connector.isPlaybookCompatible());
     input.setListenCallbackURI(connector.getListenCallbackURI());
     return input;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == null) {
+      return false;
+    }
+
+    if (obj.getClass() != this.getClass()) {
+      return false;
+    }
+    return this.connector.equals(((RegisterConnector) obj).getConnector());
   }
 }

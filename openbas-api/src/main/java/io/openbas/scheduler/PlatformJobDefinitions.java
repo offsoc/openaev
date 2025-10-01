@@ -53,7 +53,7 @@ public class PlatformJobDefinitions {
 
   @Bean
   public JobDetail getConnectorPingJob() {
-    return JobBuilder.newJob(ConnectorPingJob.class)
+    return JobBuilder.newJob(OpenCTIConnectorRegisterPingJob.class)
         .storeDurably()
         .withIdentity(jobKey("ConnectorPingJob"))
         .build();

@@ -33,8 +33,9 @@ public class OpenCTIService {
 
   public RegisterConnector.ResponsePayload registerConnector(ConnectorBase connector)
       throws IOException, ConnectorError {
-    Mutation mut = new RegisterConnector(connector);
-    Response r = openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
+    Response r =
+        openCTIClient.execute(
+            connector.getUrl(), connector.getAuthToken(), new RegisterConnector(connector));
     if (r.isError()) {
       throw new ConnectorError(
           """
@@ -64,8 +65,8 @@ public class OpenCTIService {
               .formatted(connector.getName(), connector.getUrl()));
     }
 
-    Mutation mut = new Ping(connector);
-    Response r = openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), mut);
+    Response r =
+        openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), new Ping(connector));
     if (r.isError()) {
       throw new ConnectorError(
           """
