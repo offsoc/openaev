@@ -1818,7 +1818,7 @@ export interface EsInject {
   /** @format date-time */
   base_updated_at?: string;
   /** @format date-time */
-  inject_execution_date?: string;
+  execution_date?: string;
   inject_status?: string;
   inject_title?: string;
 }
@@ -1844,6 +1844,8 @@ export interface EsInjectExpectation {
   /** @format date-time */
   base_updated_at?: string;
   base_user_side?: string;
+  /** @format date-time */
+  execution_date?: string;
   inject_expectation_description?: string;
   /** @format double */
   inject_expectation_expected_score?: number;
@@ -1940,6 +1942,8 @@ export interface EsSimulation {
   base_teams_side?: string[];
   /** @format date-time */
   base_updated_at?: string;
+  /** @format date-time */
+  execution_date?: string;
   name?: string;
   status?: string;
 }
