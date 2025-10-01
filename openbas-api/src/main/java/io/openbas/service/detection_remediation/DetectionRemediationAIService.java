@@ -28,7 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class DetectionRemediationAIService {
   private static final String X_OPENAEV_CERTIFICATE = "X-OpenAEV-Certificate";
 
-  @Value("${remediation.detection.webservice}")
+  @Value("${remediation.detection.webservice:#{null}}")
   String REMEDIATION_DETECTION_WEBSERVICE;
 
   private final Ee ee;
