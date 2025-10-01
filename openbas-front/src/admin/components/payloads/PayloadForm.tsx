@@ -121,12 +121,7 @@ const PayloadForm = ({
     payload_arguments: z.array(payloadArgumentZodObject).optional().describe('Commands-tab'),
     payload_prerequisites: z.array(payloadPrerequisiteZodObject).optional().describe('Commands-tab'),
     payload_output_parsers: z.array(outputParserObject).optional().describe('Output-tab'),
-    remediations: z.record(z.string(), z.object({
-      author_rule: z.enum(['HUMAN', 'AI', 'AI_OUTDATED']),
-      detection_remediation_collector: z.string().optional(),
-      detection_remediation_values: z.string().optional(),
-      detection_remediation_id: z.string().optional(),
-    }).optional()).optional(),
+    remediations: z.any(),
   };
 
   const commandSchema = z.object({
