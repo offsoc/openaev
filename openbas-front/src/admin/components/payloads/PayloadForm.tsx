@@ -8,7 +8,7 @@ import { z, type ZodTypeAny } from 'zod';
 import Tabs, { type TabsEntry } from '../../../components/common/tabs/Tabs';
 import useTabs from '../../../components/common/tabs/useTabs';
 import { useFormatter } from '../../../components/i18n';
-import { type DetectionRemediation } from '../../../utils/api-types';
+import { type DetectionRemediationInput } from '../../../utils/api-types';
 import { type PayloadCreateInput } from '../../../utils/api-types-custom';
 import useEnterpriseEdition from '../../../utils/hooks/useEnterpriseEdition';
 import EEChip from '../common/entreprise_edition/EEChip';
@@ -52,7 +52,7 @@ const PayloadForm = ({
     payload_prerequisites: [],
     payload_output_parsers: [],
     payload_execution_arch: 'ALL_ARCHITECTURES',
-    remediations: new Map<string, DetectionRemediation>(),
+    remediations: new Map<string, DetectionRemediationInput>(),
   },
 }: Props) => {
   const { t } = useFormatter();
@@ -121,7 +121,12 @@ const PayloadForm = ({
     payload_arguments: z.array(payloadArgumentZodObject).optional().describe('Commands-tab'),
     payload_prerequisites: z.array(payloadPrerequisiteZodObject).optional().describe('Commands-tab'),
     payload_output_parsers: z.array(outputParserObject).optional().describe('Output-tab'),
-    remediations: z.any().optional(),
+    remediations: z.record(z.string(), z.object({
+      author_rule: z.enum(['HUMAN', 'AI', 'AI_OUTDATED']),
+      detection_remediation_collector: z.string().optional(),
+      detection_remediation_values: z.string().optional(),
+      detection_remediation_id: z.string().optional(),
+    }).optional()).optional(),
   };
 
   const commandSchema = z.object({
@@ -216,10 +221,10 @@ const PayloadForm = ({
   });
 
   useEffect(() => {
-    const remediations = methods.getValues('remediations') ?? {};
+    const remediations = (methods.getValues('remediations') ?? {}) as Record<string, DetectionRemediationInput>;
     Object.entries(remediations).forEach(([key, value]) => {
-      const currentDetection = value as DetectionRemediation;
-      const fieldName = 'remediations.' + key as keyof PayloadCreateInput;
+      const currentDetection = value;
+      const fieldName = `remediations.${key}` as const;
 
       if (hasSpecificDirtyFieldAI(defaultValues, snapshot?.get(key)?.trackedFields, trackedUseWatch as FieldValues)) {
         currentDetection.author_rule = currentDetection.author_rule !== 'HUMAN' ? 'AI_OUTDATED' : currentDetection.author_rule;

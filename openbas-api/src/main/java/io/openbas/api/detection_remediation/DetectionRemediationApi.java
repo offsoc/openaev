@@ -107,7 +107,7 @@ public class DetectionRemediationApi {
     }
 
     return switch (collectorType) {
-        case CollectorsUtils.CROWDSTRIKE ->
+      case CollectorsUtils.CROWDSTRIKE ->
           detectionRemediationService.getRulesDetectionRemediationCrowdstrike(input);
 
       case CollectorsUtils.MICROSOFT_DEFENDER ->
@@ -174,7 +174,8 @@ public class DetectionRemediationApi {
         detectionRemediationService.getOrCreateDetectionRemediationWithAIRulesByCollector(
             detectionRemediations, payload, collectorType);
 
-    DetectionRemediationOutput detectionRemediationOutput = PayloadMapper.toDetectionRemediationOutput(detectionRemediation);
+    DetectionRemediationOutput detectionRemediationOutput =
+        PayloadMapper.toDetectionRemediationOutput(detectionRemediation);
 
     return ResponseEntity.ok(detectionRemediationOutput);
   }
