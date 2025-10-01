@@ -6,7 +6,7 @@ import org.flywaydb.core.api.migration.Context;
 import org.springframework.stereotype.Component;
 
 @Component
-public class V4_39__Modify_detection_remediation extends BaseJavaMigration {
+public class V4_40__Modify_detection_remediation extends BaseJavaMigration {
 
   @Override
   public void migrate(Context context) throws Exception {
