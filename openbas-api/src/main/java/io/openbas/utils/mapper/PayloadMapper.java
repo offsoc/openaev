@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
@@ -31,6 +32,7 @@ public class PayloadMapper {
 
   private final Ee eeService;
   private final LicenseCacheManager licenseCacheManager;
+  private final ApplicationContext context;
 
   public StatusPayloadOutput getStatusPayloadOutputFromInject(Optional<Inject> inject) {
 
@@ -260,7 +262,9 @@ public class PayloadMapper {
   }
 
   public static Set<RelatedEntityOutput> toRelatedEntityOutputs(Set<Payload> payloads) {
-    return payloads.stream().map(PayloadMapper::toRelatedEntityOutput).collect(Collectors.toSet());
+    return payloads.stream()
+        .map(PayloadMapper::toRelatedEntityOutput)
+        .collect(Collectors.toSet());
   }
 
   private static RelatedEntityOutput toRelatedEntityOutput(Payload payload) {
