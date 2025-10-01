@@ -1393,6 +1393,7 @@
   "Rules written by Human": "Rules written by Human",
   "Payload changed since rule was edited": "Payload changed since rule was edited",
   " is not available for current collector": " is not available for current collector",
+  " is not available for current payload type": " is not available for current payload type",
   " is locked until required fields are filled.": " is locked until required fields are filled.",
   " is only available for empty content": " is only available for empty content" ,
   "Use Ariane ": "Use Ariane ",

@@ -1393,6 +1393,7 @@
   "Rules written by Human": "规则编写人",
   "Payload changed since rule was edited": "规则编辑后有效载荷发生变化",
   " is not available for current collector": " 当前采集器不可用",
+  " is not available for current payload type": "当前有效载荷类型不可用",
   " is locked until required fields are filled.": " 被锁定，直到填写了必填字段。",
   " is only available for empty content": " 仅适用于空内容",
   "Use Ariane ": "使用阿里安",

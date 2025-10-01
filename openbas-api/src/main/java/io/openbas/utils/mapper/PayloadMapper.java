@@ -260,9 +260,7 @@ public class PayloadMapper {
   }
 
   public static Set<RelatedEntityOutput> toRelatedEntityOutputs(Set<Payload> payloads) {
-    return payloads.stream()
-        .map(PayloadMapper::toRelatedEntityOutput)
-        .collect(Collectors.toSet());
+    return payloads.stream().map(PayloadMapper::toRelatedEntityOutput).collect(Collectors.toSet());
   }
 
   private static RelatedEntityOutput toRelatedEntityOutput(Payload payload) {
