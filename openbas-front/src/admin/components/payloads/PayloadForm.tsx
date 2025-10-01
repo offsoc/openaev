@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { type FormEvent, type SyntheticEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect } from 'react';
 import { type FieldValues, FormProvider, type SubmitHandler, useForm, useWatch } from 'react-hook-form';
 import { z, type ZodTypeAny } from 'zod';
 
@@ -257,25 +257,25 @@ const PayloadForm = ({
         >
           <Tabs
             entries={tabEntries}
-          currentTab={currentTab}
+            currentTab={currentTab}
             onChange={newValue => handleChangeTab(newValue)}
           />
 
-        {currentTab === 'General' && (
-          <GeneralFormTab />
-        )}
+          {currentTab === 'General' && (
+            <GeneralFormTab />
+          )}
 
-        {currentTab === 'Commands' && (
-          <CommandsFormTab disabledPayloadType={editing} />
-        )}
+          {currentTab === 'Commands' && (
+            <CommandsFormTab disabledPayloadType={editing} />
+          )}
 
-        {currentTab === 'Output' && (
-          <OutputFormTab />
-        )}
+          {currentTab === 'Output' && (
+            <OutputFormTab />
+          )}
 
-        {currentTab === 'Remediation' && (
-          <RemediationFormTab payloadId={initialValues?.payload_id} />
-        )}
+          {currentTab === 'Remediation' && (
+            <RemediationFormTabs payloadId={initialValues?.payload_id} />
+          )}
 
           <div style={{
             marginTop: 'auto',
