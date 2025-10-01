@@ -2,9 +2,7 @@ package io.openbas.rest.dashboard;
 
 import static io.openbas.config.SessionHelper.currentUser;
 
-import io.openbas.database.model.CustomDashboard;
-import io.openbas.database.model.CustomDashboardParameters;
-import io.openbas.database.model.Widget;
+import io.openbas.database.model.*;
 import io.openbas.database.raw.RawUserAuth;
 import io.openbas.database.raw.RawUserAuthFlat;
 import io.openbas.database.repository.UserRepository;
@@ -13,8 +11,11 @@ import io.openbas.engine.api.*;
 import io.openbas.engine.model.EsBase;
 import io.openbas.engine.model.EsSearch;
 import io.openbas.engine.query.EsAttackPath;
+import io.openbas.engine.query.EsCountInterval;
 import io.openbas.engine.query.EsSeries;
 import io.openbas.rest.custom_dashboard.WidgetService;
+import io.openbas.rest.dashboard.model.WidgetToEntitiesInput;
+import io.openbas.rest.dashboard.model.WidgetToEntitiesOutput;
 import io.openbas.service.EsAttackPathService;
 import io.openbas.utils.mapper.RawUserAuthMapper;
 import java.util.List;
@@ -39,9 +40,10 @@ public class DashboardService {
    *
    * @param widgetId the id from the {@link Widget} defining the type and configuration
    * @param parameters parameters passed at runtime (e.g. filters, date ranges)
-   * @return long representing the count result
+   * @return EsCountInterval a count object, including the current and previous interval count and
+   *     the difference between the two
    */
-  public long count(String widgetId, Map<String, String> parameters) {
+  public EsCountInterval count(String widgetId, Map<String, String> parameters) {
     WidgetContext widgetContext = getWidgetContext(widgetId, parameters);
     FlatConfiguration config = (FlatConfiguration) widgetContext.widget().getWidgetConfiguration();
     CountRuntime runtime =
@@ -81,6 +83,19 @@ public class DashboardService {
   }
 
   /**
+   * Executes a list query using the provided widget context and configuration.
+   *
+   * @param widgetContext the context containing widget, user, and parameter information
+   * @param config the list configuration defining query parameters
+   * @return a list of entities retrieved from the engine service
+   */
+  private List<EsBase> executeListQuery(WidgetContext widgetContext, ListConfiguration config) {
+    ListRuntime runtime =
+        new ListRuntime(config, widgetContext.parameters(), widgetContext.definitionParameters());
+    return engineService.entities(widgetContext.user(), runtime);
+  }
+
+  /**
    * Retrieves a list of entities from Elasticsearch for a widget configured as a list.
    *
    * @param widgetId the id from the {@link Widget} with a list configuration
@@ -90,11 +105,56 @@ public class DashboardService {
   public List<EsBase> entities(String widgetId, Map<String, String> parameters) {
     WidgetContext widgetContext = getWidgetContext(widgetId, parameters);
     ListConfiguration config = (ListConfiguration) widgetContext.widget().getWidgetConfiguration();
-    ListRuntime runtime =
-        new ListRuntime(config, widgetContext.parameters(), widgetContext.definitionParameters());
-    return engineService.entities(widgetContext.user(), runtime);
+    return executeListQuery(widgetContext, config);
   }
 
+  /**
+   * Checks if the given widget is a Security Coverage chart widget.
+   *
+   * @param widget the widget to check
+   * @return true if the widget is of type SECURITY_COVERAGE_CHART, false otherwise
+   */
+  private boolean isSecurityCoverageWidget(Widget widget) {
+    return WidgetType.SECURITY_COVERAGE_CHART.equals(widget.getType());
+  }
+
+  /**
+   * Converts a widget to a list configuration and retrieves corresponding entities. Handles special
+   * case for Security Coverage widgets which require a two-step process.
+   *
+   * @param widgetId the unique identifier of the widget
+   * @param input contains parameters, series index, and filter value for the conversion
+   * @return output containing both the generated list configuration and retrieved entities
+   */
+  public WidgetToEntitiesOutput widgetToEntitiesRuntime(
+      String widgetId, WidgetToEntitiesInput input) {
+    WidgetContext widgetContext = getWidgetContext(widgetId, input.getParameters());
+    ListConfiguration listConfig;
+    List<EsBase> datas;
+
+    if (isSecurityCoverageWidget(widgetContext.widget)) {
+      listConfig =
+          widgetService.convertSecurityCoverageWidgetToListConfiguration(
+              widgetContext.widget, input.getFilterValues());
+    } else {
+      listConfig =
+          widgetService.convertWidgetToListConfiguration(
+              widgetContext.widget, input.getSeriesIndex(), input.getFilterValues());
+    }
+
+    datas = executeListQuery(widgetContext, listConfig);
+    return WidgetToEntitiesOutput.builder().listConfiguration(listConfig).esEntities(datas).build();
+  }
+
+  /**
+   * Retrieves a list of EsAttackPath data from Elasticsearch for an attack path widget.
+   *
+   * @param widgetId the unique identifier of the widget
+   * @param parameters parameters passed at runtime (e.g. filters, date ranges)
+   * @return list of {@link EsAttackPath} representing data suitable for charting the AttachPath
+   *     widget
+   * @throws RuntimeException if the widget type is unsupported
+   */
   public List<EsAttackPath> attackPaths(String widgetId, Map<String, String> parameters)
       throws ExecutionException, InterruptedException {
     WidgetContext widgetContext = getWidgetContext(widgetId, parameters);

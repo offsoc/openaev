@@ -15,14 +15,19 @@ import io.openbas.database.model.User;
 import io.openbas.rest.helper.RestBehavior;
 import io.openbas.service.PermissionService;
 import io.openbas.service.UserService;
+import jakarta.transaction.Transactional;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +49,8 @@ public class StreamApi extends RestBehavior {
   private final PermissionService permissionService;
   private final UserService userService;
 
+  private Instant lastUpdate = Instant.now();
+
   public StreamApi(PermissionService permissionService, UserService userService) {
     this.permissionService = permissionService;
     this.userService = userService;
@@ -57,49 +64,60 @@ public class StreamApi extends RestBehavior {
     flux.next(message);
   }
 
+  @Async
+  @Transactional
   @TransactionalEventListener
   public void listenDatabaseUpdate(BaseEvent event) {
-    consumers.entrySet().stream()
-        .parallel()
-        .forEach(
-            entry -> {
-              User user = userService.user(entry.getValue().getT1().getId());
-              // FIXME find a way to cache user
-              // -> close session when user se login
+    if (lastUpdate.isBefore(Instant.now().minus(5, ChronoUnit.MINUTES))) {
+      log.info(
+          "There are currently {} users connected to the stream. The id of the users connected : {}",
+          consumers.size(),
+          consumers.values().stream()
+              .map(Tuple2::getT1)
+              .map(OpenBASPrincipal::getId)
+              .collect(Collectors.joining(", ")));
 
-              Tuple2<OpenBASPrincipal, FluxSink<Object>> tupleFlux = entry.getValue();
-              FluxSink<Object> fluxSink = tupleFlux.getT2();
-              if (!permissionService.hasPermission(
-                  user,
-                  event.getInstance().getId(),
-                  event.getInstance().getResourceType(),
-                  Action.READ)) {
-                // If user as no visibility, we can send a "delete" userEvent with only the internal
-                // id
-                // TODO -> rethink this logic -> do we need to send DELETE events
-                try {
-                  String propertyId =
-                      event
-                          .getInstance()
-                          .getClass()
-                          .getDeclaredField("id")
-                          .getAnnotation(JsonProperty.class)
-                          .value();
-                  ObjectNode deleteNode = mapper.createObjectNode();
-                  deleteNode.set(
-                      propertyId, mapper.convertValue(event.getInstance().getId(), JsonNode.class));
-                  BaseEvent userEvent = event.clone();
-                  userEvent.setInstanceData(deleteNode);
-                  userEvent.setType(DATA_DELETE);
-                  sendStreamEvent(fluxSink, userEvent);
-                } catch (Exception e) {
-                  String simpleName = event.getInstance().getClass().getSimpleName();
-                  log.warn(String.format("Class %s cant be streamed", simpleName), e);
-                }
-              } else {
-                sendStreamEvent(fluxSink, event);
-              }
-            });
+      lastUpdate = Instant.now();
+    }
+
+    consumers.forEach(
+        (key, tupleFlux) -> {
+          User user = userService.user(tupleFlux.getT1().getId());
+          // FIXME find a way to cache user
+          // -> close session when user se login
+
+          FluxSink<Object> fluxSink = tupleFlux.getT2();
+          if (!permissionService.hasPermission(
+              user,
+              event.getInstance().getId(),
+              event.getInstance().getResourceType(),
+              Action.READ)) {
+            // If user as no visibility, we can send a "delete" userEvent with only the internal
+            // id
+            // TODO -> rethink this logic -> do we need to send DELETE events
+            try {
+              String propertyId =
+                  event
+                      .getInstance()
+                      .getClass()
+                      .getDeclaredField("id")
+                      .getAnnotation(JsonProperty.class)
+                      .value();
+              ObjectNode deleteNode = mapper.createObjectNode();
+              deleteNode.set(
+                  propertyId, mapper.convertValue(event.getInstance().getId(), JsonNode.class));
+              BaseEvent userEvent = event.clone();
+              userEvent.setInstanceData(deleteNode);
+              userEvent.setType(DATA_DELETE);
+              sendStreamEvent(fluxSink, userEvent);
+            } catch (Exception e) {
+              String simpleName = event.getInstance().getClass().getSimpleName();
+              log.warn(String.format("Class %s cant be streamed", simpleName), e);
+            }
+          } else {
+            sendStreamEvent(fluxSink, event);
+          }
+        });
   }
 
   /** Create a flux for current user & session */

@@ -8,8 +8,6 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import io.openbas.aop.lock.LockAcquisitionException;
-import io.openbas.config.OpenBASPrincipal;
-import io.openbas.database.model.Organization;
 import io.openbas.database.model.User;
 import io.openbas.database.repository.UserRepository;
 import io.openbas.rest.exception.*;
@@ -18,6 +16,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.annotation.Resource;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -209,6 +208,20 @@ public class RestBehavior {
     return new ResponseEntity<>(message, HttpStatus.NOT_FOUND);
   }
 
+  @ExceptionHandler(EntityNotFoundException.class)
+  @ApiResponses(
+      value = {
+        @ApiResponse(
+            responseCode = "404",
+            description = "Resource not found",
+            content = @Content(schema = @Schema(implementation = ResponseEntity.class))),
+      })
+  public ResponseEntity<ErrorMessage> handleEntityNotFoundException(EntityNotFoundException ex) {
+    ErrorMessage message = new ErrorMessage("Element not found: " + ex.getMessage());
+    log.warn(String.format("ElementNotFoundException: %s", ex.getMessage()), ex);
+    return new ResponseEntity<>(message, HttpStatus.NOT_FOUND);
+  }
+
   @ExceptionHandler(UnsupportedMediaTypeException.class)
   public ResponseEntity<ErrorMessage> handleUnsupportedMediaTypeException(
       UnsupportedMediaTypeException ex) {
@@ -245,47 +258,6 @@ public class RestBehavior {
     return userRepository
         .findById(currentUser().getId())
         .orElseThrow(() -> new ElementNotFoundException("Current user not found"));
-  }
-
-  public void checkUserAccess(UserRepository userRepository, String userId) {
-    User askedUser = userRepository.findById(userId).orElseThrow();
-    if (askedUser.getOrganization() != null) {
-      OpenBASPrincipal currentUser = currentUser();
-      if (!currentUser.isAdmin()) {
-        User local =
-            userRepository
-                .findById(currentUser.getId())
-                .orElseThrow(() -> new ElementNotFoundException("Current user not found"));
-        List<String> localOrganizationIds =
-            local.getGroups().stream()
-                .flatMap(group -> group.getOrganizations().stream())
-                .map(Organization::getId)
-                .toList();
-        if (!localOrganizationIds.contains(askedUser.getOrganization().getId())) {
-          throw new UnsupportedOperationException("User is restricted");
-        }
-      }
-    }
-  }
-
-  public void checkOrganizationAccess(UserRepository userRepository, String organizationId) {
-    if (organizationId != null) {
-      OpenBASPrincipal currentUser = currentUser();
-      if (!currentUser.isAdmin()) {
-        User local =
-            userRepository
-                .findById(currentUser.getId())
-                .orElseThrow(() -> new ElementNotFoundException("Current user not found"));
-        List<String> localOrganizationIds =
-            local.getGroups().stream()
-                .flatMap(group -> group.getOrganizations().stream())
-                .map(Organization::getId)
-                .toList();
-        if (!localOrganizationIds.contains(organizationId)) {
-          throw new UnsupportedOperationException("User is restricted");
-        }
-      }
-    }
   }
 
   protected void validateUUID(final String id) throws InputValidationException {

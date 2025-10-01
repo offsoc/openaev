@@ -1,32 +1,28 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Box, Button, Tab, Tabs } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { type FormEvent, type FunctionComponent, type SyntheticEvent, useMemo, useState } from 'react';
-import { FormProvider, type SubmitHandler, useForm } from 'react-hook-form';
+import { type FunctionComponent, useMemo } from 'react';
+import { FormProvider, type SubmitErrorHandler, type SubmitHandler, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { fetchPlatformParameters, updatePlatformParameters } from '../../../../actions/Application';
 import type { LoggedHelper } from '../../../../actions/helper';
+import Tabs, { type TabsEntry } from '../../../../components/common/tabs/Tabs';
+import useTabs from '../../../../components/common/tabs/useTabs';
 import { useFormatter } from '../../../../components/i18n';
 import { useHelper } from '../../../../store';
-import {
-  type CustomDashboardInput,
-  type PlatformSettings,
-} from '../../../../utils/api-types';
-import { useAppDispatch } from '../../../../utils/hooks';
-import useDataLoader from '../../../../utils/hooks/useDataLoader';
+import { type CustomDashboardInput, type PlatformSettings } from '../../../../utils/api-types';
 import { zodImplement } from '../../../../utils/Zod';
 import GeneralFormTab from './form/GeneralFormTab';
 import ParametersTab from './form/ParametersTab';
 
-type CustomDashboardFormType = CustomDashboardInput & {
+export type CustomDashboardFormType = CustomDashboardInput & {
   is_default_home_dashboard: boolean;
   is_default_scenario_dashboard: boolean;
   is_default_simulation_dashboard: boolean;
 };
 
 interface Props {
-  onSubmit: SubmitHandler<CustomDashboardInput>;
+  onSubmit: SubmitHandler<CustomDashboardFormType>;
   initialValues?: CustomDashboardInput;
   editing?: boolean;
   customDashboardId?: string;
@@ -48,25 +44,7 @@ const CustomDashboardForm: FunctionComponent<Props> = ({
   const { t } = useFormatter();
   const theme = useTheme();
 
-  const dispatch = useAppDispatch();
   const { settings }: { settings: PlatformSettings } = useHelper((helper: LoggedHelper) => ({ settings: helper.getPlatformSettings() }));
-  useDataLoader(() => {
-    if (editing) {
-      dispatch(fetchPlatformParameters());
-    }
-  });
-
-  const tabs = [{
-    key: 'General',
-    label: 'General',
-  }, {
-    key: 'Parameters',
-    label: 'Parameters',
-  }];
-  const [activeTab, setActiveTab] = useState(tabs[0].key);
-  const handleActiveTabChange = (_: SyntheticEvent, newValue: string) => {
-    setActiveTab(newValue);
-  };
 
   const parametersSchema = z.object({
     custom_dashboards_parameter_id: z.string().optional(),
@@ -77,12 +55,12 @@ const CustomDashboardForm: FunctionComponent<Props> = ({
   const validationSchema = useMemo(
     () =>
       zodImplement<CustomDashboardFormType>().with({
-        custom_dashboard_name: z.string().min(1, { message: t('Should not be empty') }),
-        custom_dashboard_description: z.string().optional(),
-        custom_dashboard_parameters: z.array(parametersSchema).optional(),
-        is_default_home_dashboard: z.boolean(),
-        is_default_scenario_dashboard: z.boolean(),
-        is_default_simulation_dashboard: z.boolean(),
+        custom_dashboard_name: z.string().min(1, { message: t('Should not be empty') }).describe('General'),
+        custom_dashboard_description: z.string().optional().describe('General'),
+        custom_dashboard_parameters: z.array(parametersSchema).optional().describe('Parameters'),
+        is_default_home_dashboard: z.boolean().describe('General'),
+        is_default_scenario_dashboard: z.boolean().describe('General'),
+        is_default_simulation_dashboard: z.boolean().describe('General'),
       }),
     [],
   );
@@ -100,40 +78,28 @@ const CustomDashboardForm: FunctionComponent<Props> = ({
 
   const {
     handleSubmit,
-    getValues,
     formState: { isSubmitting, isDirty },
   } = methods;
 
-  const handleSubmitWithoutDefault = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // Get all values at once
-    const formValues = getValues();
+  const tabEntries: TabsEntry[] = [{
+    key: 'General',
+    label: t('General'),
+  }, {
+    key: 'Parameters',
+    label: t('Parameters'),
+  }];
+  const { currentTab, handleChangeTab } = useTabs(tabEntries[0].key);
 
-    const getDefaultDashboardId = (isChecked: boolean, currentDefault = '') => {
-      if (isChecked) return customDashboardId;
-      return currentDefault === customDashboardId ? '' : currentDefault;
-    };
-
-    const platformUpdates = {
-      platform_home_dashboard: getDefaultDashboardId(formValues.is_default_home_dashboard, settings.platform_home_dashboard),
-      platform_scenario_dashboard: getDefaultDashboardId(formValues.is_default_scenario_dashboard, settings.platform_scenario_dashboard),
-      platform_simulation_dashboard: getDefaultDashboardId(formValues.is_default_simulation_dashboard, settings.platform_simulation_dashboard),
-    };
-
-    // Check if anything actually changed
-    if (JSON.stringify(platformUpdates) !== JSON.stringify({
-      platform_home_dashboard: settings.platform_home_dashboard,
-      platform_scenario_dashboard: settings.platform_scenario_dashboard,
-      platform_simulation_dashboard: settings.platform_simulation_dashboard,
-    })) {
-      dispatch(updatePlatformParameters({
-        ...settings,
-        ...platformUpdates,
-      }));
-    }
-
-    handleSubmit(onSubmit)(e);
-    handleClose();
+  const handleSubmitWithErrors: SubmitErrorHandler<CustomDashboardFormType> = (errors) => {
+    const errorKeys = Object.keys(errors) as (keyof CustomDashboardFormType)[];
+    tabEntries.forEach((tab) => {
+      errorKeys.forEach((name) => {
+        if (validationSchema.shape[name].description === tab.key) {
+          handleChangeTab(tab.key);
+          return;
+        }
+      });
+    });
   };
 
   return (
@@ -145,21 +111,14 @@ const CustomDashboardForm: FunctionComponent<Props> = ({
           minHeight: '100%',
           gap: theme.spacing(2),
         }}
-        onSubmit={handleSubmitWithoutDefault}
+        onSubmit={handleSubmit(onSubmit, handleSubmitWithErrors)}
       >
         <Tabs
-          value={activeTab}
-          onChange={handleActiveTabChange}
-          aria-label="tabs for payload form"
-          sx={{
-            borderBottom: 1,
-            borderColor: 'divider',
-          }}
-        >
-          {tabs.map(tab => <Tab key={tab.key} label={tab.label} value={tab.key} />)}
-        </Tabs>
-
-        {activeTab === 'General' && (
+          entries={tabEntries}
+          currentTab={currentTab}
+          onChange={idx => handleChangeTab(idx)}
+        />
+        {currentTab === 'General' && (
           <GeneralFormTab
             initialDefaultDashboardIds={
               {
@@ -171,9 +130,7 @@ const CustomDashboardForm: FunctionComponent<Props> = ({
           />
         )}
 
-        {activeTab === 'Parameters' && (
-          <ParametersTab />
-        )}
+        {currentTab === 'Parameters' && <ParametersTab />}
 
         <Box sx={{
           display: 'flex',

@@ -1,31 +1,14 @@
-import {
-  DashboardOutlined, DescriptionOutlined, DevicesOtherOutlined, DnsOutlined, DomainOutlined, Groups3Outlined, GroupsOutlined, HubOutlined, InsertChartOutlined, MovieFilterOutlined,
-  OnlinePredictionOutlined,
-  PersonOutlined,
-  RowingOutlined,
-  SchoolOutlined,
-  SettingsOutlined,
-  SmartButtonOutlined,
-  SubscriptionsOutlined,
-  TerminalOutlined,
-} from '@mui/icons-material';
-import {
-  Binoculars,
-  NewspaperVariantMultipleOutline,
-  PostOutline,
-  SecurityNetwork,
-  SelectGroup,
-  Target,
-} from 'mdi-material-ui';
+import { DashboardOutlined, DescriptionOutlined, DevicesOtherOutlined, DnsOutlined, Groups3Outlined, GroupsOutlined, HubOutlined, InsertChartOutlined, MovieFilterOutlined, OnlinePredictionOutlined, PersonOutlined, RocketLaunchOutlined, RowingOutlined, SchoolOutlined, SettingsOutlined, SmartButtonOutlined, SubscriptionsOutlined, TerminalOutlined } from '@mui/icons-material';
+import { Binoculars, NewspaperVariantMultipleOutline, PostOutline, SecurityNetwork, SelectGroup, Target } from 'mdi-material-ui';
 import { useContext } from 'react';
 
 import LeftMenu from '../../../components/common/menu/leftmenu/LeftMenu';
 import { AbilityContext } from '../../../utils/permissions/PermissionsProvider';
 import { ACTIONS, SUBJECTS } from '../../../utils/permissions/types';
+import { GETTING_STARTED_URI } from '../getting_started/GettingStartedRoutes';
 
 const LeftBar = () => {
   const ability = useContext(AbilityContext);
-
   const entries = [
     {
       userRight: true,
@@ -122,12 +105,6 @@ const LeftBar = () => {
               icon: () => (<GroupsOutlined fontSize="small" />),
               userRight: true,
             },
-            {
-              link: '/admin/teams/organizations',
-              label: 'Organizations',
-              icon: () => (<DomainOutlined fontSize="small" />),
-              userRight: ability.can(ACTIONS.ACCESS, SUBJECTS.PLATFORM_SETTINGS),
-            },
           ],
         },
         {
@@ -207,14 +184,14 @@ const LeftBar = () => {
       ],
     },
     {
-      userRight: true,
+      userRight: ability.can(ACTIONS.ACCESS, SUBJECTS.PLATFORM_SETTINGS),
       items: [
         {
           path: `/admin/settings`,
           icon: () => (<SettingsOutlined />),
           label: 'Settings',
           href: 'settings',
-          userRight: true,
+          userRight: ability.can(ACTIONS.ACCESS, SUBJECTS.PLATFORM_SETTINGS),
           subItems: [
             {
               link: '/admin/settings/parameters',
@@ -234,11 +211,16 @@ const LeftBar = () => {
             {
               link: '/admin/settings/taxonomies',
               label: 'Taxonomies',
-              userRight: true,
+              userRight: ability.can(ACTIONS.ACCESS, SUBJECTS.PLATFORM_SETTINGS),
             },
             {
               link: '/admin/settings/data_ingestion',
               label: 'Data ingestion',
+              userRight: ability.can(ACTIONS.ACCESS, SUBJECTS.PLATFORM_SETTINGS),
+            },
+            {
+              link: '/admin/settings/experience',
+              label: 'Filigran Experience',
               userRight: ability.can(ACTIONS.ACCESS, SUBJECTS.PLATFORM_SETTINGS),
             },
           ],
@@ -246,8 +228,21 @@ const LeftBar = () => {
       ],
     },
   ];
+  const bottomEntries = [
+    {
+      userRight: true,
+      items: [
+        {
+          path: `/admin/${GETTING_STARTED_URI}`,
+          icon: () => (<RocketLaunchOutlined />),
+          label: 'Getting Started',
+          userRight: true,
+        },
+      ],
+    },
+  ];
   return (
-    <LeftMenu entries={entries} />
+    <LeftMenu entries={entries} bottomEntries={bottomEntries} />
   );
 };
 

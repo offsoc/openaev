@@ -69,7 +69,6 @@ public class ExerciseApi extends RestBehavior {
   public static final String EXERCISE_URI = "/api/exercises";
 
   // region repositories
-  private final CustomDashboardService customDashboardService;
   private final LogRepository logRepository;
   private final TagRepository tagRepository;
   private final UserRepository userRepository;
@@ -80,7 +79,6 @@ public class ExerciseApi extends RestBehavior {
   private final ExerciseTeamUserRepository exerciseTeamUserRepository;
   private final LogRepository exerciseLogRepository;
   private final ComcheckRepository comcheckRepository;
-  private final ImportService importService;
   private final LessonsCategoryRepository lessonsCategoryRepository;
   private final LessonsQuestionRepository lessonsQuestionRepository;
   private final LessonsAnswerRepository lessonsAnswerRepository;
@@ -94,9 +92,11 @@ public class ExerciseApi extends RestBehavior {
 
   // region services
   private final AssetGroupService assetGroupService;
+  private final CustomDashboardService customDashboardService;
   private final EndpointService endpointService;
   private final FileService fileService;
   private final InjectService injectService;
+  private final ImportService importService;
   private final ExerciseService exerciseService;
   private final TeamService teamService;
   private final ExportService exportService;

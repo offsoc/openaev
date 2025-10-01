@@ -3,23 +3,44 @@ package io.openbas.stix.objects;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.openbas.stix.objects.constants.CommonProperties;
 import io.openbas.stix.parsing.ParsingException;
 import io.openbas.stix.parsing.StixSerialisable;
 import io.openbas.stix.types.BaseType;
+import io.openbas.stix.types.Identifier;
 import io.openbas.stix.types.StixString;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import lombok.Getter;
-import lombok.Setter;
 
-public class ObjectBase implements StixSerialisable {
-  @Getter @Setter private Map<String, BaseType<?>> properties;
+public abstract class ObjectBase implements StixSerialisable {
+  private final Map<String, BaseType<?>> properties;
+
+  protected ObjectBase(Map<String, BaseType<?>> properties) {
+    this.properties = properties;
+  }
+
+  public Identifier getId() {
+    return (Identifier) this.getProperty(CommonProperties.ID);
+  }
+
+  public StixString getType() {
+    return (StixString) this.getProperty(CommonProperties.TYPE);
+  }
 
   public BaseType<?> getProperty(String name) {
     return properties.get(name);
+  }
+
+  public BaseType<?> getProperty(CommonProperties property) {
+    return this.getProperty(property.toString());
+  }
+
+  public void setProperty(String name, BaseType<?> value) {
+    properties.put(name, value);
   }
 
   public boolean hasProperty(String name) {
@@ -55,11 +76,11 @@ public class ObjectBase implements StixSerialisable {
     }
   }
 
-  public void setIfListPresent(String propName, Consumer<List<String>> setter) {
+  public void setIfSetPresent(String propName, Consumer<Set<String>> setter) {
     if (this.hasProperty(propName) && this.getProperty(propName).getValue() != null) {
       Object value = getProperty(propName).getValue();
       if (value instanceof List<?>) {
-        List<String> strings =
+        Set<String> strings =
             ((List<?>) value)
                 .stream()
                     .map(
@@ -70,7 +91,7 @@ public class ObjectBase implements StixSerialisable {
                             return v.toString();
                           }
                         })
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
 
         setter.accept(strings);
       }

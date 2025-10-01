@@ -5,9 +5,9 @@ import static io.openbas.database.criteria.GenericCriteria.countQuery;
 import static io.openbas.database.specification.ExerciseSpecification.*;
 import static io.openbas.database.specification.TeamSpecification.fromIds;
 import static io.openbas.helper.StreamHelper.fromIterable;
-import static io.openbas.utils.Constants.ARTICLES;
 import static io.openbas.utils.JpaUtils.arrayAggOnId;
 import static io.openbas.utils.StringUtils.duplicateString;
+import static io.openbas.utils.constants.Constants.ARTICLES;
 import static io.openbas.utils.pagination.SortUtilsCriteriaBuilder.toSortCriteriaBuilder;
 import static java.time.Instant.now;
 import static java.util.Collections.emptyList;
@@ -24,6 +24,7 @@ import io.openbas.database.repository.*;
 import io.openbas.ee.Ee;
 import io.openbas.expectation.ExpectationType;
 import io.openbas.rest.atomic_testing.form.TargetSimple;
+import io.openbas.rest.dashboard.DashboardService;
 import io.openbas.rest.document.DocumentService;
 import io.openbas.rest.exception.ElementNotFoundException;
 import io.openbas.rest.exercise.form.ExerciseSimple;
@@ -34,11 +35,13 @@ import io.openbas.rest.inject.service.InjectDuplicateService;
 import io.openbas.rest.inject.service.InjectService;
 import io.openbas.rest.scenario.service.ScenarioStatisticService;
 import io.openbas.rest.team.output.TeamOutput;
+import io.openbas.service.*;
 import io.openbas.service.GrantService;
 import io.openbas.service.TagRuleService;
 import io.openbas.service.TeamService;
 import io.openbas.service.UserService;
 import io.openbas.service.VariableService;
+import io.openbas.service.cron.CronService;
 import io.openbas.telemetry.metric_collectors.ActionMetricCollector;
 import io.openbas.utils.FilterUtilsJpa;
 import io.openbas.utils.InjectExpectationResultUtils.ExpectationResultsByType;
@@ -54,7 +57,7 @@ import jakarta.persistence.Tuple;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import jakarta.validation.constraints.NotBlank;
-import java.time.Instant;
+import java.time.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -88,7 +91,9 @@ public class ExerciseService {
   private final TagRuleService tagRuleService;
   private final DocumentService documentService;
   private final InjectService injectService;
+  private final CronService cronService;
   private final UserService userService;
+  private final DashboardService dashboardService;
 
   private final ExerciseMapper exerciseMapper;
   private final InjectMapper injectMapper;
@@ -131,7 +136,7 @@ public class ExerciseService {
         exercise.setReplyTos(List.of(imapUsername));
       } else {
         exercise.setFrom(openBASConfig.getDefaultMailer());
-        exercise.setReplyTos(List.of(openBASConfig.getDefaultReplyTo()));
+        exercise.setReplyTos(new ArrayList<>(List.of(openBASConfig.getDefaultReplyTo())));
       }
     }
 
@@ -196,6 +201,24 @@ public class ExerciseService {
     List<Article> articles = exercise.getArticles();
     List<Inject> injects = exercise.getInjects();
     return documentService.getPlayerDocuments(articles, injects);
+  }
+
+  public Optional<Exercise> getFollowingSimulation(Exercise exercise) {
+    return exercise.getScenario() != null
+        ? exerciseRepository.following(exercise)
+        : Optional.empty();
+  }
+
+  public Optional<Instant> getLatestValidityDate(Exercise exercise) {
+    Optional<Exercise> follower = this.getFollowingSimulation(exercise);
+    if (follower.isPresent()) {
+      return follower.get().getStart();
+    }
+
+    return exercise.getStart().isPresent() && exercise.getScenario() != null
+        ? cronService.getNextExecutionFromInstant(
+            exercise.getStart().get(), ZoneId.of("UTC"), exercise.getScenario().getRecurrence())
+        : Optional.empty();
   }
 
   private void getListOfExerciseTeams(
@@ -668,7 +691,8 @@ public class ExerciseService {
 
   // -- GLOBAL RESULTS --
   public List<ExpectationResultsByType> getGlobalResults(@NotBlank String exerciseId) {
-    return resultUtils.getResultsByTypes(exerciseRepository.findInjectsByExercise(exerciseId));
+    return resultUtils.computeGlobalExpectationResults(
+        exerciseRepository.findInjectsByExercise(exerciseId));
   }
 
   public ExercisesGlobalScoresOutput getExercisesGlobalScores(ExercisesGlobalScoresInput input) {
@@ -760,7 +784,7 @@ public class ExerciseService {
 
       // Add the default asset groups to the injects
       exercise.getInjects().stream()
-          .filter(injectService::canApplyAssetGroupToInject)
+          .filter(inject -> this.injectService.canApplyTargetType(inject, TargetType.ASSETS_GROUPS))
           .forEach(
               inject ->
                   injectService.applyDefaultAssetGroupsToInject(
@@ -777,6 +801,10 @@ public class ExerciseService {
         .stream()
         .findFirst()
         .orElse(null);
+  }
+
+  public boolean isFinished(Exercise exercise) {
+    return ExerciseStatus.FINISHED.equals(exercise.getStatus());
   }
 
   public boolean isThereAScoreDegradation(

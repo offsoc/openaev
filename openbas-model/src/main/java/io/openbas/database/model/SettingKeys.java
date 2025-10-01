@@ -17,9 +17,13 @@ public enum SettingKeys {
   PLATFORM_BANNER("platform_banner", ""),
   PLATFORM_INSTANCE("instance_id", ""),
   PLATFORM_INSTANCE_CREATION("instance_creation_date", ""),
-  PLATFORM_ONBOARDING_WIDGET_ENABLE("platform_onboarding_widget_enable", "true"),
-  PLATFORM_ONBOARDING_CONTEXTUAL_HELP_ENABLE("platform_onboarding_contextual_help_enable", "true"),
-  ;
+  XTM_HUB_TOKEN("xtm_hub_token", ""),
+  XTM_HUB_REGISTRATION_DATE("xtm_hub_registration_date", ""),
+  XTM_HUB_REGISTRATION_STATUS("xtm_hub_registration_status", ""),
+  XTM_HUB_REGISTRATION_USER_ID("xtm_hub_registration_user_id", ""),
+  XTM_HUB_REGISTRATION_USER_NAME("xtm_hub_registration_user_name", ""),
+  XTM_HUB_LAST_CONNECTIVITY_CHECK("xtm_hub_last_connectivity_check", ""),
+  XTM_HUB_SHOULD_SEND_CONNECTIVITY_EMAIL("xtm_hub_should_send_connectivity_email", "true");
 
   private final String key;
   private final String defaultValue;

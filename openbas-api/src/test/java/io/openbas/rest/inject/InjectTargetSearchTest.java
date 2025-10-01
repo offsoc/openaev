@@ -15,8 +15,7 @@ import io.openbas.utils.FilterUtilsJpa;
 import io.openbas.utils.TargetType;
 import io.openbas.utils.fixtures.*;
 import io.openbas.utils.fixtures.composers.*;
-import io.openbas.utils.mockUser.WithMockAdminUser;
-import io.openbas.utils.mockUser.WithMockUnprivilegedUser;
+import io.openbas.utils.mockUser.WithMockUser;
 import io.openbas.utils.pagination.SearchPaginationInput;
 import jakarta.persistence.EntityManager;
 import java.util.*;
@@ -99,7 +98,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("When inject does not exist")
   public class WhenInjectDoesNotExist {
     @Test
@@ -115,7 +114,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("When target type does not exist")
   public class WhenTargetTypeDoesNotExist {
     @Test
@@ -136,7 +135,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockUnprivilegedUser
+  @WithMockUser
   @DisplayName("Without authorisation")
   public class WhenInjectWithoutAuthorisation {
     @Test
@@ -152,7 +151,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("With agent search")
   public class WithAgentSearch {
     private final TargetType targetType = TargetType.AGENT;
@@ -323,19 +322,19 @@ public class InjectTargetSearchTest extends IntegrationTest {
             List.of(
                 new AgentTarget(
                     agent1Wrapper.get().getId(),
-                    agent1Wrapper.get().getTargetDisplayName(),
+                    agent1Wrapper.get().getExecutedByUser(),
                     Set.of(),
                     agent1Wrapper.get().getAsset().getId(),
                     agent1Wrapper.get().getExecutor().getType()),
                 new AgentTarget(
                     agent2Wrapper.get().getId(),
-                    agent2Wrapper.get().getTargetDisplayName(),
+                    agent2Wrapper.get().getExecutedByUser(),
                     Set.of(),
                     agent2Wrapper.get().getAsset().getId(),
                     agent2Wrapper.get().getExecutor().getType()),
                 new AgentTarget(
                     agent3Wrapper.get().getId(),
-                    agent3Wrapper.get().getTargetDisplayName(),
+                    agent3Wrapper.get().getExecutedByUser(),
                     Set.of(),
                     agent3Wrapper.get().getAsset().getId(),
                     agent3Wrapper.get().getExecutor().getType()));
@@ -447,7 +446,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
         AgentTarget expectedTarget1 =
             new AgentTarget(
                 agent1Wrapper.get().getId(),
-                agent1Wrapper.get().getTargetDisplayName(),
+                agent1Wrapper.get().getExecutedByUser(),
                 Set.of(),
                 agent1Wrapper.get().getAsset().getId(),
                 agent1Wrapper.get().getExecutor().getType());
@@ -456,7 +455,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
         AgentTarget expectedTarget2 =
             new AgentTarget(
                 agent2Wrapper.get().getId(),
-                agent2Wrapper.get().getTargetDisplayName(),
+                agent2Wrapper.get().getExecutedByUser(),
                 Set.of(),
                 agent2Wrapper.get().getAsset().getId(),
                 agent2Wrapper.get().getExecutor().getType());
@@ -538,7 +537,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
         AgentTarget expectedTarget =
             new AgentTarget(
                 agent1Wrapper.get().getId(),
-                agent1Wrapper.get().getTargetDisplayName(),
+                agent1Wrapper.get().getExecutedByUser(),
                 Set.of(),
                 agent1Wrapper.get().getAsset().getId(),
                 agent1Wrapper.get().getExecutor().getType());
@@ -629,19 +628,19 @@ public class InjectTargetSearchTest extends IntegrationTest {
             List.of(
                 new AgentTarget(
                     agent1Wrapper.get().getId(),
-                    agent1Wrapper.get().getTargetDisplayName(),
+                    agent1Wrapper.get().getExecutedByUser(),
                     Set.of(),
                     agent1Wrapper.get().getAsset().getId(),
                     agent1Wrapper.get().getExecutor().getType()),
                 new AgentTarget(
                     agent2Wrapper.get().getId(),
-                    agent2Wrapper.get().getTargetDisplayName(),
+                    agent2Wrapper.get().getExecutedByUser(),
                     Set.of(),
                     agent2Wrapper.get().getAsset().getId(),
                     agent2Wrapper.get().getExecutor().getType()),
                 new AgentTarget(
                     agent3Wrapper.get().getId(),
-                    agent3Wrapper.get().getTargetDisplayName(),
+                    agent3Wrapper.get().getExecutedByUser(),
                     Set.of(),
                     agent3Wrapper.get().getAsset().getId(),
                     agent3Wrapper.get().getExecutor().getType()));
@@ -733,7 +732,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
         AgentTarget expectedTarget =
             new AgentTarget(
                 agent2Wrapper.get().getId(),
-                agent2Wrapper.get().getTargetDisplayName(),
+                agent2Wrapper.get().getExecutedByUser(),
                 Set.of(),
                 agent2Wrapper.get().getAsset().getId(),
                 agent2Wrapper.get().getExecutor().getType());
@@ -813,7 +812,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
         AgentTarget expectedTarget =
             new AgentTarget(
                 agent1Wrapper.get().getId(),
-                agent1Wrapper.get().getTargetDisplayName(),
+                agent1Wrapper.get().getExecutedByUser(),
                 Set.of(),
                 agent1Wrapper.get().getAsset().getId(),
                 agent1Wrapper.get().getExecutor().getType());
@@ -894,7 +893,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
         AgentTarget expectedTarget =
             new AgentTarget(
                 agent2Wrapper.get().getId(),
-                agent2Wrapper.get().getTargetDisplayName(),
+                agent2Wrapper.get().getExecutedByUser(),
                 Set.of(),
                 agent2Wrapper.get().getAsset().getId(),
                 agent2Wrapper.get().getExecutor().getType());
@@ -979,7 +978,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
         AgentTarget expectedTarget =
             new AgentTarget(
                 agent1Wrapper.get().getId(),
-                agent1Wrapper.get().getTargetDisplayName(),
+                agent1Wrapper.get().getExecutedByUser(),
                 Set.of(),
                 agent1Wrapper.get().getAsset().getId(),
                 agent1Wrapper.get().getExecutor().getType());
@@ -1066,7 +1065,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
           AgentTarget expectedTarget =
               new AgentTarget(
                   agent1Wrapper.get().getId(),
-                  agent1Wrapper.get().getTargetDisplayName(),
+                  agent1Wrapper.get().getExecutedByUser(),
                   Set.of(),
                   agent1Wrapper.get().getAsset().getId(),
                   agent1Wrapper.get().getExecutor().getType());
@@ -1150,7 +1149,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
           AgentTarget expectedTarget =
               new AgentTarget(
                   agent2Wrapper.get().getId(),
-                  agent2Wrapper.get().getTargetDisplayName(),
+                  agent2Wrapper.get().getExecutedByUser(),
                   Set.of(),
                   agent2Wrapper.get().getAsset().getId(),
                   agent2Wrapper.get().getExecutor().getType());
@@ -1233,7 +1232,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
           AgentTarget expectedTarget =
               new AgentTarget(
                   agent2Wrapper.get().getId(),
-                  agent2Wrapper.get().getTargetDisplayName(),
+                  agent2Wrapper.get().getExecutedByUser(),
                   Set.of(),
                   agent2Wrapper.get().getAsset().getId(),
                   agent2Wrapper.get().getExecutor().getType());
@@ -1317,7 +1316,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
           AgentTarget expectedTarget =
               new AgentTarget(
                   agent1Wrapper.get().getId(),
-                  agent1Wrapper.get().getTargetDisplayName(),
+                  agent1Wrapper.get().getExecutedByUser(),
                   Set.of(),
                   agent1Wrapper.get().getAsset().getId(),
                   agent1Wrapper.get().getExecutor().getType());
@@ -1330,7 +1329,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("With endpoint search")
   public class WithEndpointSearch {
     private final TargetType targetType = TargetType.ASSETS;
@@ -2123,7 +2122,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("With asset groups search")
   public class WithAssetGroupsSearch {
     private final TargetType targetType = TargetType.ASSETS_GROUPS;
@@ -2488,7 +2487,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("With teams search")
   public class WithTeamsSearch {
 
@@ -2938,7 +2937,7 @@ public class InjectTargetSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("With players search")
   public class WithPlayersSearch {
 

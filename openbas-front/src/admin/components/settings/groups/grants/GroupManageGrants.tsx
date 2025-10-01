@@ -4,7 +4,6 @@ import Drawer from '../../../../../components/common/Drawer';
 import { useFormatter } from '../../../../../components/i18n';
 import { type Group } from '../../../../../utils/api-types';
 import GroupManageAtomicTestingGrants from './atomic_testings/GroupManageAtomicTestingGrants';
-import GroupManageOrganizationGrants from './organizations/GroupManageOrganizationGrants';
 import GroupManagePayloadGrants from './payloads/GroupManagePayloadGrants';
 import GroupManageScenarioGrants from './scenarios/GroupManageScenarioGrants';
 import GroupManageSimulationGrants from './simulations/GroupManageSimulationGrants';
@@ -14,12 +13,14 @@ interface GroupManageGrantsProps {
   group: Group;
   openGrants: boolean;
   handleCloseGrants: () => void;
+  fetchAndUpdateGroup: () => void;
 }
 
 const GroupManageGrants: FunctionComponent<GroupManageGrantsProps> = ({
   group,
   openGrants,
   handleCloseGrants,
+  fetchAndUpdateGroup,
 }) => {
   const { t } = useFormatter();
 
@@ -32,28 +33,28 @@ const GroupManageGrants: FunctionComponent<GroupManageGrantsProps> = ({
       <TabbedView
         tabs={[
           {
+            key: 'Scenarios',
             label: t('Scenarios'),
             component: (
-              <GroupManageScenarioGrants groupId={group.group_id} />
+              <GroupManageScenarioGrants groupId={group.group_id} onGrantChange={fetchAndUpdateGroup} />
             ),
           },
           {
+            key: 'Simulations',
             label: t('Simulations'),
             component: (
-              <GroupManageSimulationGrants groupId={group.group_id} />
+              <GroupManageSimulationGrants groupId={group.group_id} onGrantChange={fetchAndUpdateGroup} />
             ),
           },
           {
-            label: t('Organizations'),
-            component: <GroupManageOrganizationGrants groupId={group.group_id} />,
-          },
-          {
+            key: 'Atomic testings',
             label: t('Atomic testings'),
-            component: <GroupManageAtomicTestingGrants groupId={group.group_id} />,
+            component: <GroupManageAtomicTestingGrants groupId={group.group_id} onGrantChange={fetchAndUpdateGroup} />,
           },
           {
+            key: 'Payloads',
             label: t('Payloads'),
-            component: <GroupManagePayloadGrants groupId={group.group_id} />,
+            component: <GroupManagePayloadGrants groupId={group.group_id} onGrantChange={fetchAndUpdateGroup} />,
           },
         ]}
       />

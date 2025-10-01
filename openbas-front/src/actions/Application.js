@@ -8,10 +8,6 @@ export const fetchPlatformParameters = () => (dispatch) => {
   return getReferential(schema.platformParameters, '/api/settings')(dispatch);
 };
 
-export const fetchDefaultPlatformParameters = () => (dispatch) => {
-  return getReferential(schema.defaultPlatformParameters, '/api/settings/default')(dispatch);
-};
-
 export const updatePlatformParameters = data => (dispatch) => {
   return putReferential(
     schema.platformParameters,
@@ -56,14 +52,6 @@ export const updatePlatformDarkParameters = data => (dispatch) => {
   return putReferential(
     schema.platformParameters,
     '/api/settings/theme/dark',
-    data,
-  )(dispatch);
-};
-
-export const updateSettingsOnboarding = data => (dispatch) => {
-  return putReferential(
-    schema.platformParameters,
-    '/api/settings/onboarding',
     data,
   )(dispatch);
 };
@@ -139,8 +127,4 @@ export const fetchMe = () => (dispatch) => {
 export const logout = () => (dispatch) => {
   const ref = simpleCall('/logout');
   return ref.then(() => dispatch({ type: Constants.IDENTITY_LOGOUT_SUCCESS }));
-};
-
-export const fetchStatistics = () => (dispatch) => {
-  return getReferential(schema.statistics, '/api/statistics')(dispatch);
 };

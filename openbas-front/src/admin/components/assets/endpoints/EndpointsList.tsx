@@ -5,7 +5,7 @@ import { makeStyles } from 'tss-react/mui';
 
 import AssetPlatformFragment from '../../../../components/common/list/fragments/AssetPlatformFragment';
 import AssetTypeFragment from '../../../../components/common/list/fragments/AssetTypeFragment';
-import TagsFragment from '../../../../components/common/list/fragments/TagsFragment';
+import ItemTags from '../../../../components/ItemTags';
 import PaginatedListLoader from '../../../../components/PaginatedListLoader';
 import { type EndpointOutput } from '../../../../utils/api-types';
 import EndpointListItemFragments from '../../common/endpoints/EndpointListItemFragments';
@@ -29,33 +29,31 @@ const useStyles = makeStyles()(() => ({
   },
 }));
 
-const inlineStyles: Record<string, CSSProperties> = {
-  asset_name: { width: '35%' },
-  asset_platform: {
-    width: '15%',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  asset_tags: { width: '35%' },
-  asset_type: { width: '10%' },
-};
-
 interface Props {
   endpoints: EndpointOutput[];
   renderActions: ((endpoint: EndpointOutput) => ReactElement<EndpointPopoverProps>);
   loading?: boolean;
+  compact?: boolean;
 }
 
 const EndpointsList: FunctionComponent<Props> = ({
   endpoints,
   renderActions,
   loading = false,
+  compact = false,
 }) => {
   // Standard hooks
   const { classes } = useStyles();
 
   const component = (endpoint: EndpointOutput) => {
     return renderActions(endpoint);
+  };
+
+  const inlineStyles: Record<string, CSSProperties> = {
+    asset_name: { width: compact ? '40%' : '30%' },
+    asset_platform: { width: compact ? '10%' : '20%' },
+    asset_tags: { width: '30%' },
+    asset_type: { width: '20%' },
   };
 
   const headers = [
@@ -75,7 +73,7 @@ const EndpointsList: FunctionComponent<Props> = ({
       field: EndpointListItemFragments.ASSET_TAGS,
       label: 'Tags',
       isSortable: false,
-      value: (endpoint: EndpointOutput) => <TagsFragment tags={endpoint.asset_tags} />,
+      value: (endpoint: EndpointOutput) => <ItemTags variant="list" tags={endpoint.asset_tags ?? []} />,
     },
     {
       field: EndpointListItemFragments.ASSET_TYPE,

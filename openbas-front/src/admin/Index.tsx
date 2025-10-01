@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, useNavigate } from 'react-router';
 import { type CSSObject } from 'tss-react';
 import { makeStyles } from 'tss-react/mui';
+import { useLocalStorage } from 'usehooks-ts';
 
 import { fetchAttackPatterns } from '../actions/AttackPattern';
 import { type LoggedHelper } from '../actions/helper';
@@ -18,9 +19,11 @@ import { useAppDispatch } from '../utils/hooks';
 import useDataLoader from '../utils/hooks/useDataLoader';
 import ProtectedRoute from '../utils/permissions/ProtectedRoute';
 import { ACTIONS, SUBJECTS } from '../utils/permissions/types';
+import { GETTING_STARTED_LOCAL_STORAGE_KEY } from './components/getting_started/GettingStartedPage';
+import GettingStartedRoutes, { GETTING_STARTED_URI } from './components/getting_started/GettingStartedRoutes';
 import LeftBar from './components/nav/LeftBar';
 import TopBar from './components/nav/TopBar';
-import OnboardingRenderer from './components/onboarding/OnboardingRenderer';
+import DeployScenario from './components/scenarios/DeployScenario';
 import InjectIndex from './components/simulations/simulation/injects/InjectIndex';
 
 const Home = lazy(() => import('./components/Home'));
@@ -73,13 +76,21 @@ const Index = () => {
     overflowX: 'hidden',
     overflowY: 'hidden',
   };
-  // load taxonomics one time at login
+  // load taxonomies one time at login
   useDataLoader(() => {
     dispatch(fetchAttackPatterns());
     dispatch(fetchKillChainPhases());
     dispatch(fetchTags());
   });
   const { bannerHeight } = computeBannerSettings(settings);
+  const [goToGettingStarted, setGoToGettingStarted] = useLocalStorage<boolean>(GETTING_STARTED_LOCAL_STORAGE_KEY, true);
+  useEffect(() => {
+    if (goToGettingStarted) {
+      navigate('/admin/' + GETTING_STARTED_URI, { replace: true });
+      setGoToGettingStarted(false);
+    }
+  }, [goToGettingStarted, navigate, setGoToGettingStarted]);
+
   return (
     <Box
       sx={{
@@ -93,7 +104,6 @@ const Index = () => {
       <LeftBar />
       <Box component="main" sx={boxSx}>
         <div className={classes.toolbar} />
-        <OnboardingRenderer />
         <Suspense fallback={<Loader />}>
           <Routes>
             <Route path="profile/*" element={errorWrapper(IndexProfile)()} />
@@ -162,6 +172,7 @@ const Index = () => {
               )}
             />
             <Route path="scenarios" element={errorWrapper(Scenarios)()} />
+            <Route path="deploy-scenario/:serviceInstanceId/:fileId" element={errorWrapper(DeployScenario)()} />
             <Route
               path="scenarios/:scenarioId/*"
               element={(
@@ -193,18 +204,6 @@ const Index = () => {
                 />
               )}
             />
-            <Route
-              path="workspaces/custom_dashboards/:customDashboardId/*"
-              element={(
-                <ProtectedRoute
-                  checks={[{
-                    action: ACTIONS.ACCESS,
-                    subject: SUBJECTS.DASHBOARDS,
-                  }]}
-                  Component={errorWrapper(IndexCustomDashboard)()}
-                />
-              )}
-            />
             <Route path="payloads" element={errorWrapper(Payloads)()} />
             <Route
               path="integrations/*"
@@ -219,9 +218,18 @@ const Index = () => {
               )}
             />
             <Route path="agents/*" element={errorWrapper(IndexAgents)()} />
+            {GettingStartedRoutes}
             <Route
               path="settings/*"
-              element={errorWrapper(IndexSettings)()}
+              element={(
+                <ProtectedRoute
+                  checks={[{
+                    action: ACTIONS.ACCESS,
+                    subject: SUBJECTS.PLATFORM_SETTINGS,
+                  }]}
+                  Component={errorWrapper(IndexSettings)()}
+                />
+              )}
             />
             {/* Not found */}
             <Route path="*" element={<NotFound />} />

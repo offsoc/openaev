@@ -4,7 +4,6 @@ import static io.openbas.config.SessionHelper.currentUser;
 import static io.openbas.database.model.SettingKeys.*;
 import static io.openbas.helper.StreamHelper.fromIterable;
 import static java.lang.Boolean.parseBoolean;
-import static java.lang.String.valueOf;
 import static java.util.Optional.ofNullable;
 
 import io.openbas.config.EngineConfig;
@@ -12,10 +11,7 @@ import io.openbas.config.OpenBASConfig;
 import io.openbas.config.OpenBASPrincipal;
 import io.openbas.config.RabbitmqConfig;
 import io.openbas.config.cache.LicenseCacheManager;
-import io.openbas.database.model.BannerMessage;
-import io.openbas.database.model.Setting;
-import io.openbas.database.model.SettingKeys;
-import io.openbas.database.model.Theme;
+import io.openbas.database.model.*;
 import io.openbas.database.repository.SettingRepository;
 import io.openbas.ee.Ee;
 import io.openbas.ee.License;
@@ -24,15 +20,21 @@ import io.openbas.executors.caldera.config.CalderaExecutorConfig;
 import io.openbas.expectation.ExpectationPropertiesConfig;
 import io.openbas.helper.RabbitMQHelper;
 import io.openbas.injectors.opencti.config.OpenCTIConfig;
-import io.openbas.injectors.xtmhub.config.XTMHubConfig;
 import io.openbas.rest.exception.BadRequestException;
 import io.openbas.rest.settings.PreviewFeature;
 import io.openbas.rest.settings.form.*;
 import io.openbas.rest.settings.response.OAuthProvider;
 import io.openbas.rest.settings.response.PlatformSettings;
 import io.openbas.rest.stream.ai.AiConfig;
+import io.openbas.xtmhub.XtmHubConnectivityService;
+import io.openbas.xtmhub.XtmHubRegistererRecord;
+import io.openbas.xtmhub.XtmHubRegistrationStatus;
+import io.openbas.xtmhub.config.XtmHubConfig;
 import jakarta.annotation.Resource;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -45,6 +47,7 @@ import org.springframework.boot.autoconfigure.security.saml2.Saml2RelyingPartyPr
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -55,15 +58,19 @@ public class PlatformSettingsService {
   public static final String THEME_TYPE_LIGHT = "light";
   public static final String THEME_TYPE_DARK = "dark";
 
+  @PersistenceContext private EntityManager entityManager;
   private final ApplicationContext context;
   private final Environment env;
   private final SettingRepository settingRepository;
   private final OpenCTIConfig openCTIConfig;
-  private final XTMHubConfig xtmHubConfig;
+  private final XtmHubConfig xtmHubConfig;
   private final AiConfig aiConfig;
   private final CalderaExecutorConfig calderaExecutorConfig;
   private final Ee eeService;
   private final EngineService engineService;
+  private final XtmHubConnectivityService xtmHubConnectivityService;
+
+  @Autowired private TransactionTemplate transactionTemplate;
 
   @Value("${openbas.mail.imap.enabled}")
   private boolean imapEnabled;
@@ -215,8 +222,6 @@ public class PlatformSettingsService {
       platformSettings.setPlatformAgentUrl(openBASConfig.getBaseUrlForAgent());
       platformSettings.setXtmOpenctiEnable(openCTIConfig.getEnable());
       platformSettings.setXtmOpenctiUrl(openCTIConfig.getUrl());
-      platformSettings.setXtmHubEnable(xtmHubConfig.getEnable());
-      platformSettings.setXtmHubUrl(xtmHubConfig.getUrl());
       platformSettings.setAiEnabled(aiConfig.isEnabled());
       platformSettings.setAiHasToken(StringUtils.hasText(aiConfig.getToken()));
       platformSettings.setAiType(aiConfig.getType());
@@ -306,28 +311,23 @@ public class PlatformSettingsService {
     // License
     platformSettings.setPlatformLicense(licenseCacheManager.getEnterpriseEditionInfo());
 
-    // Onboarding
-    String onboardingWidgetEnable =
-        ofNullable(dbSettings.get(PLATFORM_ONBOARDING_WIDGET_ENABLE.key()))
-            .map(Setting::getValue)
-            .orElse(PLATFORM_ONBOARDING_WIDGET_ENABLE.defaultValue());
-    platformSettings.setOnboardingWidgetEnable(parseBoolean(onboardingWidgetEnable));
-    String onboardingContextualHelpEnable =
-        ofNullable(dbSettings.get(PLATFORM_ONBOARDING_CONTEXTUAL_HELP_ENABLE.key()))
-            .map(Setting::getValue)
-            .orElse(PLATFORM_ONBOARDING_CONTEXTUAL_HELP_ENABLE.defaultValue());
-    platformSettings.setOnboardingContextualHelpEnable(
-        parseBoolean(onboardingContextualHelpEnable));
-    return platformSettings;
-  }
-
-  public PlatformSettings defaultValues() {
-    PlatformSettings platformSettings = new PlatformSettings();
-    // Onboarding
-    platformSettings.setOnboardingWidgetEnable(
-        parseBoolean(PLATFORM_ONBOARDING_WIDGET_ENABLE.defaultValue()));
-    platformSettings.setOnboardingContextualHelpEnable(
-        parseBoolean(PLATFORM_ONBOARDING_CONTEXTUAL_HELP_ENABLE.defaultValue()));
+    // XTM Hub
+    platformSettings.setXtmHubEnable(xtmHubConfig.getEnable());
+    platformSettings.setXtmHubUrl(xtmHubConfig.getUrl());
+    platformSettings.setXtmHubReachable(xtmHubConnectivityService.isReachable());
+    platformSettings.setXtmHubToken(getValueFromMapOfSettings(dbSettings, XTM_HUB_TOKEN.key()));
+    platformSettings.setXtmHubRegistrationStatus(
+        getValueFromMapOfSettings(dbSettings, XTM_HUB_REGISTRATION_STATUS.key()));
+    platformSettings.setXtmHubRegistrationDate(
+        getValueFromMapOfSettings(dbSettings, XTM_HUB_REGISTRATION_DATE.key()));
+    platformSettings.setXtmHubRegistrationUserId(
+        getValueFromMapOfSettings(dbSettings, XTM_HUB_REGISTRATION_USER_ID.key()));
+    platformSettings.setXtmHubRegistrationUserName(
+        getValueFromMapOfSettings(dbSettings, XTM_HUB_REGISTRATION_USER_NAME.key()));
+    platformSettings.setXtmHubLastConnectivityCheck(
+        getValueFromMapOfSettings(dbSettings, XTM_HUB_LAST_CONNECTIVITY_CHECK.key()));
+    platformSettings.setXtmHubShouldSendConnectivityEmail(
+        getValueFromMapOfSettings(dbSettings, XTM_HUB_SHOULD_SEND_CONNECTIVITY_EMAIL.key()));
     return platformSettings;
   }
 
@@ -434,24 +434,6 @@ public class PlatformSettingsService {
     return findSettings();
   }
 
-  public PlatformSettings updateSettingsOnboarding(SettingsOnboardingUpdateInput input) {
-    Map<String, Setting> dbSettings = mapOfSettings(fromIterable(this.settingRepository.findAll()));
-    List<Setting> settingsToSave = new ArrayList<>();
-    settingsToSave.add(
-        resolveFromMap(
-            dbSettings,
-            PLATFORM_ONBOARDING_WIDGET_ENABLE.key(),
-            valueOf(input.isOnboardingWidgetEnable())));
-    settingsToSave.add(
-        resolveFromMap(
-            dbSettings,
-            PLATFORM_ONBOARDING_CONTEXTUAL_HELP_ENABLE.key(),
-            valueOf(input.isOnboardingContextualHelpEnable())));
-
-    settingRepository.saveAll(settingsToSave);
-    return findSettings();
-  }
-
   public PlatformSettings updateThemeLight(ThemeInput input) {
     return updateTheme(input, THEME_TYPE_LIGHT);
   }
@@ -531,20 +513,84 @@ public class PlatformSettingsService {
             input.getLogoLoginUrl()));
 
     List<Setting> update = new ArrayList<>();
-    List<Setting> delete = new ArrayList<>();
+    List<String> delete = new ArrayList<>();
     settingsToSave.forEach(
         setting -> {
           if (StringUtils.hasText(setting.getValue())) {
             update.add(setting);
           } else if (StringUtils.hasText(setting.getId())) {
-            delete.add(setting);
+            delete.add(setting.getId());
           }
         });
 
-    settingRepository.deleteAllById(
-        delete.stream().map(Setting::getId).collect(Collectors.toList()));
+    settingRepository.deleteAllById(delete);
     settingRepository.saveAll(update);
     return findSettings();
+  }
+
+  public PlatformSettings updateXTMHubRegistration(
+      String token,
+      LocalDateTime registrationDate,
+      XtmHubRegistrationStatus registrationStatus,
+      XtmHubRegistererRecord registerer,
+      LocalDateTime lastConnectivityCheck,
+      Boolean shouldSendConnectivityEmail) {
+    Map<String, Setting> dbSettings = mapOfSettings(fromIterable(this.settingRepository.findAll()));
+
+    Map<String, String> xtmhubSettingsMap = new HashMap<>();
+    xtmhubSettingsMap.put(XTM_HUB_TOKEN.key(), token);
+    xtmhubSettingsMap.put(
+        XTM_HUB_REGISTRATION_DATE.key(),
+        registrationDate != null ? registrationDate.toString() : null);
+    xtmhubSettingsMap.put(XTM_HUB_REGISTRATION_STATUS.key(), registrationStatus.label);
+    xtmhubSettingsMap.put(
+        XTM_HUB_REGISTRATION_USER_ID.key(), registerer != null ? registerer.id() : null);
+    xtmhubSettingsMap.put(
+        XTM_HUB_REGISTRATION_USER_NAME.key(), registerer != null ? registerer.name() : null);
+    xtmhubSettingsMap.put(
+        XTM_HUB_LAST_CONNECTIVITY_CHECK.key(),
+        lastConnectivityCheck != null ? lastConnectivityCheck.toString() : null);
+    xtmhubSettingsMap.put(
+        XTM_HUB_SHOULD_SEND_CONNECTIVITY_EMAIL.key(),
+        shouldSendConnectivityEmail != null ? shouldSendConnectivityEmail.toString() : null);
+
+    // Transaction 1: Perform modifications
+    transactionTemplate.execute(
+        status -> {
+          List<Setting> allEntities = fromIterable(this.settingRepository.findAll());
+          List<Setting> toDelete =
+              allEntities.stream()
+                  .filter(
+                      s ->
+                          xtmhubSettingsMap.containsKey(s.getKey())
+                              && xtmhubSettingsMap.get(s.getKey()) == null)
+                  .collect(Collectors.toList());
+          List<Setting> toUpdate =
+              allEntities.stream()
+                  .filter(
+                      s ->
+                          xtmhubSettingsMap.containsKey(s.getKey())
+                              && xtmhubSettingsMap.get(s.getKey()) != null)
+                  .peek(s -> s.setValue(xtmhubSettingsMap.get(s.getKey())))
+                  .collect(Collectors.toList());
+
+          // Extract existing keys from toUpdate list
+          Set<String> existingToUpdateKeys =
+              toUpdate.stream().map(Setting::getKey).collect(Collectors.toSet());
+
+          xtmhubSettingsMap.forEach(
+              (key, value) -> {
+                if (value != null && !existingToUpdateKeys.contains(key)) {
+                  toUpdate.add(new Setting(key, value));
+                }
+              });
+          this.settingRepository.deleteAll(toDelete);
+          this.settingRepository.saveAll(toUpdate);
+          return null;
+        });
+
+    // Transaction 2: Fetch fresh data
+    return transactionTemplate.execute(status -> findSettings());
   }
 
   // -- PLATFORM MESSAGE --

@@ -4,7 +4,9 @@ import static io.openbas.utils.pagination.PaginationUtils.buildPaginationJPA;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.openbas.database.model.Capability;
+import io.openbas.database.model.Group;
 import io.openbas.database.model.Role;
+import io.openbas.database.repository.GroupRepository;
 import io.openbas.database.repository.RoleRepository;
 import io.openbas.rest.exception.ElementNotFoundException;
 import io.openbas.utils.pagination.SearchPaginationInput;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class RoleService {
   private final RoleRepository roleRepository;
+  private final GroupRepository groupRepository;
 
   public Optional<Role> findById(String id) {
     return roleRepository.findById(id);
@@ -33,9 +36,12 @@ public class RoleService {
   }
 
   public Role createRole(
-      @NotBlank final String roleName, @NotNull final Set<Capability> capabilities) {
+      @NotBlank final String roleName,
+      @NotBlank final String roleDescription,
+      @NotNull final Set<Capability> capabilities) {
     Role role = new Role();
     role.setName(roleName);
+    role.setDescription(roleDescription);
     role.setCapabilities(getCapabilitiesWithParents(capabilities));
     return roleRepository.save(role);
   }
@@ -43,6 +49,7 @@ public class RoleService {
   public Role updateRole(
       @NotBlank final String roleId,
       @NotBlank final String roleName,
+      @NotBlank final String roleDescription,
       @NotNull final Set<Capability> capabilities) {
 
     // verify that the role exists
@@ -53,6 +60,7 @@ public class RoleService {
 
     role.setUpdatedAt(Instant.now());
     role.setName(roleName);
+    role.setDescription(roleDescription);
     role.setCapabilities(getCapabilitiesWithParents(capabilities));
 
     return roleRepository.save(role);
@@ -68,6 +76,11 @@ public class RoleService {
         roleRepository
             .findById(roleId)
             .orElseThrow(() -> new ElementNotFoundException("Role not found with id: " + roleId));
+
+    List<Group> groups = groupRepository.findAllByRoles(role);
+    for (Group g : groups) {
+      g.getRoles().remove(role);
+    }
 
     roleRepository.deleteById(roleId);
   }

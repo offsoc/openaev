@@ -10,7 +10,12 @@ import { type Grant, type GroupGrantInput, type Scenario } from '../../../../../
 import { useAppDispatch } from '../../../../../../utils/hooks';
 import { type TableConfig } from '../ui/TableData';
 
-const useScenarioGrant = (groupId: string) => {
+interface ScenarioGrantsProps {
+  groupId: string;
+  onGrantChange: () => void;
+}
+
+const useScenarioGrant = ({ groupId, onGrantChange }: ScenarioGrantsProps) => {
   const { t } = useFormatter();
   const dispatch = useAppDispatch();
   const group = useHelper((helper: GroupHelper) => helper.getGroup(groupId));
@@ -18,6 +23,11 @@ const useScenarioGrant = (groupId: string) => {
   useEffect(() => {
     dispatch(fetchGroup(groupId));
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!group) return;
+    onGrantChange();
+  }, [group]);
 
   if (!group) {
     return { configs: [] };
@@ -69,7 +79,7 @@ const useScenarioGrant = (groupId: string) => {
       width: '20%',
     },
     {
-      label: t('Manage'),
+      label: t('Manage+Delete'),
       value: (scenario) => {
         const { plannerId, launcherId } = getGrantIds(scenario);
         return (

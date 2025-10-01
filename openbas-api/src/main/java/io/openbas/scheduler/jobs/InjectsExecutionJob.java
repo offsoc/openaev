@@ -1,10 +1,13 @@
 package io.openbas.scheduler.jobs;
 
+import static io.openbas.database.model.CollectExecutionStatus.COMPLETED;
+import static io.openbas.utils.inject_expectation_result.InjectExpectationResultUtils.hasValidResults;
 import static java.time.Instant.now;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.groupingBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.openbas.aop.LogExecutionTime;
 import io.openbas.database.model.*;
 import io.openbas.database.repository.ExerciseRepository;
 import io.openbas.database.repository.InjectDependenciesRepository;
@@ -14,9 +17,11 @@ import io.openbas.helper.InjectHelper;
 import io.openbas.notification.model.NotificationEvent;
 import io.openbas.notification.model.NotificationEventType;
 import io.openbas.rest.exception.ElementNotFoundException;
+import io.openbas.rest.inject.service.InjectService;
 import io.openbas.rest.inject.service.InjectStatusService;
 import io.openbas.scheduler.jobs.exception.ErrorMessagesPreExecutionException;
 import io.openbas.service.NotificationEventService;
+import io.openbas.service.SecurityCoverageSendJobService;
 import io.openbas.telemetry.metric_collectors.ActionMetricCollector;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
@@ -54,6 +59,7 @@ public class InjectsExecutionJob implements Job {
   private int injectExecutionThreshold;
 
   private final InjectHelper injectHelper;
+  private final InjectService injectService;
   private final ExerciseRepository exerciseRepository;
   private final InjectDependenciesRepository injectDependenciesRepository;
   private final InjectExpectationRepository injectExpectationRepository;
@@ -61,6 +67,7 @@ public class InjectsExecutionJob implements Job {
   private final io.openbas.executors.Executor executor;
   private final ActionMetricCollector actionMetricCollector;
   private final NotificationEventService notificationEventService;
+  private final SecurityCoverageSendJobService securityCoverageSendJobService;
 
   private final List<ExecutionStatus> executionStatusesNotReady =
       List.of(
@@ -101,10 +108,10 @@ public class InjectsExecutionJob implements Job {
 
   public void handleAutoClosingExercises() {
     // Change status of finished exercises.
-    List<Exercise> mustBeFinishedExercises = exerciseRepository.thatMustBeFinished();
+    List<Exercise> mustBeFinishedSimulations = exerciseRepository.thatMustBeFinished();
     List<Exercise> exercisesFinished =
         exerciseRepository.saveAll(
-            mustBeFinishedExercises.stream()
+            mustBeFinishedSimulations.stream()
                 .peek(
                     exercise -> {
                       exercise.setStatus(ExerciseStatus.FINISHED);
@@ -112,6 +119,10 @@ public class InjectsExecutionJob implements Job {
                       exercise.setUpdatedAt(now());
                     })
                 .toList());
+
+    // maybe trigger stix coverage background job
+    securityCoverageSendJobService.createOrUpdateCoverageSendJobForSimulationsIfReady(
+        exercisesFinished);
 
     // send notification
     exercisesFinished.stream()
@@ -298,6 +309,7 @@ public class InjectsExecutionJob implements Job {
   }
 
   @Override
+  @LogExecutionTime
   public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
     try {
       // Handle starting exercises if needed.
@@ -363,10 +375,33 @@ public class InjectsExecutionJob implements Job {
       // Change status of finished exercises.
       handleAutoClosingExercises();
       handlePendingInject();
+      handleInjectExpectationCollectStatus();
     } catch (Exception e) {
       log.error(e.getMessage(), e);
       throw new JobExecutionException(e);
     }
+  }
+
+  private void handleInjectExpectationCollectStatus() {
+    List<Inject> injects = injectService.getExecutedAndNotFinished();
+    if (injects.isEmpty()) {
+      return;
+    }
+    List<Inject> fulfilled = new ArrayList<>();
+    for (Inject inject : injects) {
+      if (inject.getExpectations().isEmpty()) {
+        inject.setCollectExecutionStatus(COMPLETED);
+        fulfilled.add(inject);
+      } else {
+        List<InjectExpectationResult> results =
+            inject.getExpectations().stream().flatMap(ie -> ie.getResults().stream()).toList();
+        if (hasValidResults(results)) {
+          inject.setCollectExecutionStatus(COMPLETED);
+          fulfilled.add(inject);
+        }
+      }
+    }
+    injectService.saveAll(fulfilled);
   }
 
   /**

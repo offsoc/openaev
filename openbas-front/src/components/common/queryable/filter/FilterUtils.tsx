@@ -5,7 +5,7 @@ import { type Filter, type FilterGroup, type PropertySchemaDTO, type RelatedEnti
 import { buildSearchPagination } from '../QueryableUtils';
 
 export const emptyFilterGroup: FilterGroup = {
-  mode: 'or',
+  mode: 'and',
   filters: [],
 };
 
@@ -141,6 +141,10 @@ export const availableOperators = (propertySchema: PropertySchemaDTO) => {
   // Date
   if (propertySchema.schema_property_type.includes('instant')) {
     return ['gt', 'gte', 'lt', 'lte', 'empty', 'not_empty'];
+  }
+  // Filters widgets for simulation and scenario attributes
+  if (propertySchema.schema_property_name === 'base_simulation_side' || propertySchema.schema_property_name === 'base_scenario_side') {
+    return ['eq', 'not_eq', 'empty', 'not_empty'];
   }
   // Enum & not array
   if (propertySchema.schema_property_values && !propertySchema.schema_property_type_array) {

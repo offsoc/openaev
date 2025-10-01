@@ -17,10 +17,10 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Transactional
 public class ExerciseExpectationServiceTest extends IntegrationTest {
 
   public static final String EXPECTATION_NAME =
@@ -41,18 +41,13 @@ public class ExerciseExpectationServiceTest extends IntegrationTest {
 
   static String EXERCISE_ID;
 
-  @BeforeAll
-  void beforeAll() {
+  @BeforeEach
+  void beforeEach() {
     Exercise exerciseCreated = getExercise();
     EXERCISE_ID = exerciseCreated.getId();
     Team teamCreated = getTeam();
     Inject injectCreated = getInject(exerciseCreated);
     getInjectExpectation(injectCreated, teamCreated, exerciseCreated);
-  }
-
-  @AfterAll
-  void afterAll() {
-    this.exerciseRepository.deleteById(EXERCISE_ID);
   }
 
   @DisplayName("Retrieve inject expectations")

@@ -28,6 +28,9 @@ public class EsInjectExpectation extends EsBase {
   @Queryable(label = "inject expectation name")
   private String inject_expectation_name;
 
+  @Queryable(label = "inject title of the inject expectation")
+  private String inject_title;
+
   @Queryable(label = "inject expectation description")
   private String inject_expectation_description;
 
@@ -71,16 +74,9 @@ public class EsInjectExpectation extends EsBase {
   @EsQueryable(keyword = true)
   private String base_user_side; // Must finish by _side
 
-  @Queryable(label = "team")
+  @Queryable(label = "team", filterable = true, dynamicValues = true)
   @EsQueryable(keyword = true)
   private String base_team_side; // Must finish by _side
-
-  @Queryable(
-      label = "agent",
-      filterable = true,
-      overrideOperators = {Filters.FilterOperator.empty, Filters.FilterOperator.not_empty})
-  @EsQueryable(keyword = true)
-  private String base_agent_side; // Must finish by _side
 
   @Queryable(
       label = "asset",
