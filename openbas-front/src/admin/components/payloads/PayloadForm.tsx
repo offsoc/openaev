@@ -17,7 +17,6 @@ import GeneralFormTab from './form/GeneralFormTab';
 import OutputFormTab from './form/OutputFormTab';
 import RemediationFormTabs from './form/RemediationFormTabs';
 import { hasSpecificDirtyFieldAI, trackedFields } from './utils/payloadFormToPayloadInput';
-import SnapshotRemediationProvider from './utils/SnapshotRemediationProvider';
 import { useSnapshotRemediation } from './utils/useSnapshotRemediation';
 
 interface Props {
@@ -242,7 +241,7 @@ const PayloadForm = ({
   }, [currentTab, isValidatedEnterpriseEdition]);
 
   return (
-    <SnapshotRemediationProvider>
+    <>
       <FormProvider {...methods}>
         <form
           style={{
@@ -302,7 +301,7 @@ const PayloadForm = ({
           </div>
         </form>
       </FormProvider>
-    </SnapshotRemediationProvider>
+    </>
   );
 };
 
