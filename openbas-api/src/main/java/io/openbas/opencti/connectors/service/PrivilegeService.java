@@ -13,6 +13,7 @@ import io.openbas.rest.user.form.user.CreateUserInput;
 import io.openbas.service.GroupService;
 import io.openbas.service.RoleService;
 import io.openbas.service.UserService;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -45,7 +46,7 @@ public class PrivilegeService {
       input.setToken(connector.getAuthToken());
       input.setEmail("connector-%s@openbas.invalid".formatted(connector.getId()));
       User u = userService.createUser(input, 1); // magic number; Active
-      u.setGroups(List.of(group));
+      u.setGroups(new ArrayList<>(List.of(group)));
       userService.updateUser(u);
     }
   }
@@ -58,7 +59,7 @@ public class PrivilegeService {
               roleService.createRole(
                   PROCESS_STIX_ROLE_ID,
                   "STIX bundle processors",
-                  Set.of(Capability.MANAGE_ASSESSMENT)));
+                  Set.of(Capability.MANAGE_STIX_BUNDLE)));
     }
     return processStixRole.get();
   }
