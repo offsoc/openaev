@@ -158,7 +158,4 @@ public interface UserRepository
   @NotNull
   @EntityGraph(value = "Player.tags-organization", type = EntityGraph.EntityGraphType.LOAD)
   Page<User> findAll(@NotNull Specification<User> spec, @NotNull Pageable pageable);
-
-  @Query("SELECT u FROM User u JOIN Token t ON u.id = t.user.id WHERE t.value = :token")
-  Optional<User> findByToken(@Param("token") String token);
 }

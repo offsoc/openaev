@@ -17,7 +17,10 @@ import io.openbas.rest.exception.ElementNotFoundException;
 import io.openbas.rest.user.form.user.CreateUserInput;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -86,14 +89,10 @@ public class UserService {
   }
 
   public void createUserToken(User user) {
-    createUserToken(user, UUID.randomUUID().toString());
-  }
-
-  private void createUserToken(User user, String discreteToken) {
     Token token = new Token();
     token.setUser(user);
     token.setCreated(now());
-    token.setValue(discreteToken);
+    token.setValue(UUID.randomUUID().toString());
     tokenRepository.save(token);
   }
 
@@ -117,12 +116,8 @@ public class UserService {
     user.setGroups(assignableGroups);
     // Save the user
     User savedUser = userRepository.save(user);
-    createUserToken(savedUser, input.getToken());
+    createUserToken(savedUser);
     return savedUser;
-  }
-
-  public Optional<User> findByToken(@NotBlank final String token) {
-    return this.userRepository.findByToken(token);
   }
 
   public User user(@NotBlank final String userId) {

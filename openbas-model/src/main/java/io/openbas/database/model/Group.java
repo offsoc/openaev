@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
+import org.hibernate.annotations.UuidGenerator;
 
 @Setter
 @Getter
@@ -26,9 +27,11 @@ public class Group implements Base {
 
   @Id
   @Column(name = "group_id")
+  @GeneratedValue(generator = "UUID")
+  @UuidGenerator
   @JsonProperty("group_id")
   @NotBlank
-  private String id = UUID.randomUUID().toString();
+  private String id;
 
   @Queryable(searchable = true, sortable = true)
   @Column(name = "group_name")

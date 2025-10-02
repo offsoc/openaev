@@ -14,7 +14,6 @@ import io.openbas.rest.exception.ElementNotFoundException;
 import io.openbas.rest.group.form.*;
 import io.openbas.rest.helper.RestBehavior;
 import io.openbas.service.GrantService;
-import io.openbas.service.GroupService;
 import io.openbas.service.RoleService;
 import io.openbas.utils.pagination.SearchPaginationInput;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,7 +33,6 @@ public class GroupApi extends RestBehavior {
   private final GrantRepository grantRepository;
   private final OrganizationRepository organizationRepository;
   private final GroupRepository groupRepository;
-  private final GroupService groupService;
   private final UserRepository userRepository;
   private final RoleService roleService;
   private final GrantService grantService;
@@ -64,7 +62,9 @@ public class GroupApi extends RestBehavior {
   @RBAC(actionPerformed = Action.CREATE, resourceType = ResourceType.USER_GROUP)
   @Transactional(rollbackOn = Exception.class)
   public Group createGroup(@Valid @RequestBody GroupCreateInput input) {
-    return groupService.createGroup(input);
+    Group group = new Group();
+    group.setUpdateAttributes(input);
+    return groupRepository.save(group);
   }
 
   @PutMapping("/api/groups/{groupId}/users")
