@@ -1,6 +1,6 @@
-package io.openbas.scheduler.jobs;
+package io.openaev.scheduler.jobs;
 
-import io.openbas.opencti.connectors.service.OpenCTIConnectorService;
+import io.openaev.opencti.connectors.service.OpenCTIConnectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.DisallowConcurrentExecution;

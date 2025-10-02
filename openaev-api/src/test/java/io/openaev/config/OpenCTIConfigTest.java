@@ -2,15 +2,9 @@ package io.openaev.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-<<<<<<< HEAD:openbas-api/src/test/java/io/openbas/config/OpenCTIConfigTest.java
-import io.openbas.IntegrationTest;
-import io.openbas.opencti.config.OpenCTIConfig;
-import io.openbas.utils.mockConfig.WithMockOpenCTIConfig;
-=======
 import io.openaev.IntegrationTest;
-import io.openaev.injectors.opencti.config.OpenCTIConfig;
+import io.openaev.opencti.config.OpenCTIConfig;
 import io.openaev.utils.mockConfig.WithMockOpenCTIConfig;
->>>>>>> release/current:openaev-api/src/test/java/io/openaev/config/OpenCTIConfigTest.java
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
