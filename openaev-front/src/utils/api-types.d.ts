@@ -5226,6 +5226,7 @@ export interface RoleInput {
     | "DELETE_SECURITY_PLATFORMS"
     | "ACCESS_PLATFORM_SETTINGS"
     | "MANAGE_PLATFORM_SETTINGS"
+    | "MANAGE_STIX_BUNDLE"
   )[];
   role_description?: string;
   role_name: string;
@@ -6037,6 +6038,7 @@ export interface User {
     | "DELETE_SECURITY_PLATFORMS"
     | "ACCESS_PLATFORM_SETTINGS"
     | "MANAGE_PLATFORM_SETTINGS"
+    | "MANAGE_STIX_BUNDLE"
   )[];
   /** City of the user */
   user_city?: string;
