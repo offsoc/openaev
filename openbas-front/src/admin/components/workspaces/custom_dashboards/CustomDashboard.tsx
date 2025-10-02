@@ -2,9 +2,17 @@ import { Alert, AlertTitle } from '@mui/material';
 import { useContext } from 'react';
 import { useParams } from 'react-router';
 
+import { fetchCustomDashboard } from '../../../../actions/custom_dashboards/customdashboard-action';
+import {
+  attackPaths,
+  count,
+  entities,
+  series,
+  widgetToEntitiesRuntime,
+} from '../../../../actions/dashboards/dashboard-action';
 import { useFormatter } from '../../../../components/i18n';
-import type { CustomDashboard } from '../../../../utils/api-types';
-import { AbilityContext } from '../../../../utils/permissions/PermissionsProvider';
+import type { CustomDashboard, WidgetToEntitiesInput } from '../../../../utils/api-types';
+import { AbilityContext, Can } from '../../../../utils/permissions/PermissionsProvider';
 import { ACTIONS, SUBJECTS } from '../../../../utils/permissions/types';
 import CustomDashboardEditHeader from './CustomDashboardEditHeader';
 import CustomDashboardWrapper from './CustomDashboardWrapper';
@@ -18,14 +26,20 @@ const CustomDashboard = () => {
   const configuration = {
     customDashboardId: customDashboardId,
     paramLocalStorageKey: 'custom-dashboard-' + customDashboardId,
+    fetchCustomDashboard: () => fetchCustomDashboard(customDashboardId),
+    fetchCount: (widgetId: string, params: Record<string, string | undefined>) => count(widgetId, params),
+    fetchSeries: (widgetId: string, params: Record<string, string | undefined>) => series(widgetId, params),
+    fetchEntities: (widgetId: string, params: Record<string, string | undefined>) => entities(widgetId, params),
+    fetchEntitiesRuntime: (widgetId: string, input: WidgetToEntitiesInput) => widgetToEntitiesRuntime(widgetId, input),
+    fetchAttackPaths: (widgetId: string, params: Record<string, string | undefined>) => attackPaths(widgetId, params),
   };
 
   return (
     <CustomDashboardWrapper
       configuration={configuration}
       topSlot={<CustomDashboardEditHeader />}
-      bottomSlot={<WidgetCreation />}
-      readOnly={!ability.can(ACTIONS.MANAGE, SUBJECTS.DASHBOARDS)}
+      bottomSlot={<Can I={ACTIONS.MANAGE} a={SUBJECTS.DASHBOARDS}><WidgetCreation /></Can>}
+      readOnly={ability.cannot(ACTIONS.MANAGE, SUBJECTS.DASHBOARDS)}
       noDashboardSlot={(
         <Alert severity="warning">
           <AlertTitle>{t('Warning')}</AlertTitle>

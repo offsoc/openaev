@@ -1,6 +1,7 @@
 package io.openbas.database.model;
 
 import static java.time.Instant.now;
+import static java.util.Optional.ofNullable;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -13,6 +14,7 @@ import io.openbas.database.audit.ModelBaseListener;
 import io.openbas.database.converter.ContentConverter;
 import io.openbas.helper.MonoIdDeserializer;
 import io.openbas.helper.MultiIdListDeserializer;
+import io.openbas.helper.MultiIdSetDeserializer;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
@@ -83,9 +85,7 @@ public class InjectorContract implements Base {
   @JsonProperty("injector_contract_arch")
   @Enumerated(EnumType.STRING)
   public Payload.PAYLOAD_EXECUTION_ARCH getArch() {
-    return Optional.ofNullable(getPayload())
-        .map(payload -> payload.getExecutionArch())
-        .orElse(null);
+    return ofNullable(getPayload()).map(payload -> payload.getExecutionArch()).orElse(null);
   }
 
   @ManyToOne(fetch = FetchType.EAGER)
@@ -138,13 +138,13 @@ public class InjectorContract implements Base {
       name = "injectors_contracts_vulnerabilities",
       joinColumns = @JoinColumn(name = "injector_contract_id"),
       inverseJoinColumns = @JoinColumn(name = "vulnerability_id"))
-  @JsonSerialize(using = MultiIdListDeserializer.class)
+  @JsonSerialize(using = MultiIdSetDeserializer.class)
   @JsonProperty("injector_contract_vulnerabilities")
   @Queryable(searchable = true, filterable = true, path = "vulnerabilities.externalId")
-  private List<Cve> vulnerabilities = new ArrayList<>();
+  private Set<Cve> vulnerabilities = new HashSet<>();
 
   // UpdatedAt now used to sync with linked object
-  public void setVulnerabilities(List<Cve> vulnerabilities) {
+  public void setVulnerabilities(Set<Cve> vulnerabilities) {
     this.updatedAt = now();
     this.vulnerabilities = vulnerabilities;
   }
@@ -214,16 +214,16 @@ public class InjectorContract implements Base {
   public static final String CONTRACT_ELEMENT_CONTENT_CARDINALITY = "cardinality";
   public static final String CONTRACT_ELEMENT_CONTENT_MANDATORY = "mandatory";
   public static final String CONTRACT_ELEMENT_CONTENT_MANDATORY_GROUPS = "mandatoryGroups";
-  public static final String CONTRACT_ELEMENT_CONTENT_MANDATORY_CONDITIONAL =
-      "mandatoryConditionField";
-  public static final String CONTRACT_ELEMENT_CONTENT_MANDATORY_CONDITIONAL_VALUE =
-      "mandatoryConditionValue";
+  public static final String CONTRACT_ELEMENT_CONTENT_MANDATORY_CONDITIONAL_FIELDS =
+      "mandatoryConditionFields";
+  public static final String CONTRACT_ELEMENT_CONTENT_MANDATORY_CONDITIONAL_VALUES =
+      "mandatoryConditionValues";
   public static final String DEFAULT_VALUE_FIELD = "defaultValue";
   public static final String PREDEFINED_EXPECTATIONS = "predefinedExpectations";
 
   public static final String CONTRACT_ELEMENT_CONTENT_KEY_TEAMS = "teams";
   public static final String CONTRACT_ELEMENT_CONTENT_KEY_ASSETS = "assets";
-  public static final String CONTRACT_ELEMENT_CONTENT_KEY_ASSET_GROUPS = "assetgroups";
+  public static final String CONTRACT_ELEMENT_CONTENT_KEY_ASSET_GROUPS = "asset_groups";
   public static final String CONTRACT_ELEMENT_CONTENT_KEY_ARTICLES = "articles";
   public static final String CONTRACT_ELEMENT_CONTENT_KEY_CHALLENGES = "challenges";
   public static final String CONTRACT_ELEMENT_CONTENT_KEY_ATTACHMENTS = "attachments";
@@ -233,13 +233,13 @@ public class InjectorContract implements Base {
       "targeted-asset-separator";
 
   public static final String CONTRACT_ELEMENT_CONTENT_TYPE_ASSET = "asset";
+  public static final String CONTRACT_ELEMENT_CONTENT_TYPE_ASSET_GROUP = "asset-group";
   public static final String CONTRACT_ELEMENT_CONTENT_TYPE_TEAM = "team";
+  public static final String CONTRACT_ELEMENT_CONTENT_TYPE_EXPECTATION = "expectation";
 
   public static final List<String> CONTRACT_ELEMENT_CONTENT_KEY_NOT_DYNAMIC =
       List.of(
           CONTRACT_ELEMENT_CONTENT_KEY_TEAMS,
-          CONTRACT_ELEMENT_CONTENT_KEY_ASSETS,
-          CONTRACT_ELEMENT_CONTENT_KEY_ASSET_GROUPS,
           CONTRACT_ELEMENT_CONTENT_KEY_ARTICLES,
           CONTRACT_ELEMENT_CONTENT_KEY_CHALLENGES,
           CONTRACT_ELEMENT_CONTENT_KEY_ATTACHMENTS);

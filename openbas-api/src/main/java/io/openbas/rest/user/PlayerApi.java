@@ -1,15 +1,12 @@
 package io.openbas.rest.user;
 
-import static io.openbas.config.SessionHelper.currentUser;
 import static io.openbas.helper.DatabaseHelper.updateRelation;
 import static io.openbas.helper.StreamHelper.fromIterable;
 import static io.openbas.helper.StreamHelper.iterableToSet;
-import static io.openbas.utils.UserOnboardingProgressUtils.PLAYER_SETUP;
 import static java.time.Instant.now;
 
 import io.openbas.aop.LogExecutionTime;
 import io.openbas.aop.RBAC;
-import io.openbas.aop.onboarding.Onboarding;
 import io.openbas.config.SessionManager;
 import io.openbas.database.model.*;
 import io.openbas.database.raw.RawPlayer;
@@ -53,20 +50,7 @@ public class PlayerApi extends RestBehavior {
   public Iterable<RawPlayer> players() {
     List<RawPlayer> players;
     User currentUser = userService.currentUser();
-    if (currentUser.isAdminOrBypass()) {
-      players = fromIterable(userRepository.rawAllPlayers());
-    } else {
-      User local =
-          userRepository
-              .findById(currentUser.getId())
-              .orElseThrow(() -> new ElementNotFoundException("Current user not found"));
-      List<String> organizationIds =
-          local.getGroups().stream()
-              .flatMap(group -> group.getOrganizations().stream())
-              .map(Organization::getId)
-              .toList();
-      players = userRepository.rawPlayersAccessibleFromOrganizations(organizationIds);
-    }
+    players = fromIterable(userRepository.rawAllPlayers());
     return players;
   }
 
@@ -81,16 +65,13 @@ public class PlayerApi extends RestBehavior {
   @GetMapping("/api/player/{userId}/communications")
   @RBAC(resourceId = "#userId", actionPerformed = Action.READ, resourceType = ResourceType.PLAYER)
   public Iterable<Communication> playerCommunications(@PathVariable String userId) {
-    checkUserAccess(userRepository, userId);
     return communicationRepository.findByUser(userId);
   }
 
   @PostMapping(PLAYER_URI)
   @RBAC(actionPerformed = Action.CREATE, resourceType = ResourceType.PLAYER)
   @Transactional(rollbackOn = Exception.class)
-  @Onboarding(step = PLAYER_SETUP)
   public User createPlayer(@Valid @RequestBody PlayerInput input) {
-    checkOrganizationAccess(userRepository, input.getOrganizationId());
     User user = new User();
     user.setUpdateAttributes(input);
     user.setTags(iterableToSet(tagRepository.findAllById(input.getTagIds())));
@@ -105,7 +86,6 @@ public class PlayerApi extends RestBehavior {
   @RBAC(actionPerformed = Action.CREATE, resourceType = ResourceType.PLAYER)
   @Transactional(rollbackOn = Exception.class)
   public User upsertPlayer(@Valid @RequestBody PlayerInput input) {
-    checkOrganizationAccess(userRepository, input.getOrganizationId());
     Optional<User> user = userRepository.findByEmailIgnoreCase(input.getEmail());
     if (user.isPresent()) {
       User existingUser = user.get();
@@ -148,11 +128,7 @@ public class PlayerApi extends RestBehavior {
   @PutMapping(PLAYER_URI + "/{userId}")
   @RBAC(resourceId = "#userId", actionPerformed = Action.WRITE, resourceType = ResourceType.PLAYER)
   public User updatePlayer(@PathVariable String userId, @Valid @RequestBody PlayerInput input) {
-    checkUserAccess(userRepository, userId);
     User user = userRepository.findById(userId).orElseThrow(ElementNotFoundException::new);
-    if (!currentUser().isAdmin() && user.isManager() && !currentUser().getId().equals(userId)) {
-      throw new UnsupportedOperationException("You dont have the right to update this user");
-    }
     user.setUpdateAttributes(input);
     user.setTags(iterableToSet(tagRepository.findAllById(input.getTagIds())));
     user.setOrganization(
@@ -163,11 +139,6 @@ public class PlayerApi extends RestBehavior {
   @DeleteMapping(PLAYER_URI + "/{userId}")
   @RBAC(resourceId = "#userId", actionPerformed = Action.DELETE, resourceType = ResourceType.PLAYER)
   public void deletePlayer(@PathVariable String userId) {
-    checkUserAccess(userRepository, userId);
-    User user = userRepository.findById(userId).orElseThrow(ElementNotFoundException::new);
-    if (!currentUser().isAdmin() && user.isManager()) {
-      throw new UnsupportedOperationException("You dont have the right to delete this user");
-    }
     sessionManager.invalidateUserSession(userId);
     userRepository.deleteById(userId);
   }

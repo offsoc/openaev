@@ -13,6 +13,7 @@ import { AbilityContext, Can } from '../../../utils/permissions/PermissionsProvi
 import { ACTIONS, SUBJECTS } from '../../../utils/permissions/types.js';
 import { download } from '../../../utils/utils.js';
 import PayloadForm from './PayloadForm';
+import SnapshotRemediationProvider from './utils/SnapshotRemediationProvider.js';
 
 const PayloadPopover = ({ payload, onUpdate, onDelete, onDuplicate, disableUpdate, disableDelete }) => {
   const [openDuplicate, setOpenDuplicate] = useState(false);
@@ -181,12 +182,14 @@ const PayloadPopover = ({ payload, onUpdate, onDelete, onDuplicate, disableUpdat
         handleClose={handleCloseEdit}
         title={t('Update the payload')}
       >
-        <PayloadForm
-          onSubmit={onSubmitEdit}
-          handleClose={handleCloseEdit}
-          editing
-          initialValues={initialValues}
-        />
+        <SnapshotRemediationProvider>
+          <PayloadForm
+            onSubmit={onSubmitEdit}
+            handleClose={handleCloseEdit}
+            editing
+            initialValues={initialValues}
+          />
+        </SnapshotRemediationProvider>
       </Drawer>
     </>
   );

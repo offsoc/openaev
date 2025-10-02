@@ -2,19 +2,14 @@ package io.openbas.scheduler.jobs;
 
 import static io.openbas.database.specification.ExerciseSpecification.recurringInstanceNotStarted;
 
-import com.cronutils.model.Cron;
-import com.cronutils.model.CronType;
-import com.cronutils.model.definition.CronDefinition;
-import com.cronutils.model.definition.CronDefinitionBuilder;
-import com.cronutils.model.time.ExecutionTime;
-import com.cronutils.parser.CronParser;
+import io.openbas.aop.LogExecutionTime;
 import io.openbas.database.model.Exercise;
 import io.openbas.database.model.Scenario;
 import io.openbas.database.repository.ExerciseRepository;
 import io.openbas.service.ScenarioService;
 import io.openbas.service.ScenarioToExerciseService;
+import io.openbas.service.cron.CronService;
 import jakarta.validation.constraints.NotBlank;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -22,6 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -30,14 +26,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
+@DisallowConcurrentExecution
 public class ScenarioExecutionJob implements Job {
 
   private final ScenarioService scenarioService;
   private final ExerciseRepository exerciseRepository;
   private final ScenarioToExerciseService scenarioToExerciseService;
+  private final CronService cronService;
 
   @Override
   @Transactional(rollbackFor = Exception.class)
+  @LogExecutionTime
   public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
     createExercisesFromScenarios();
     cleanOutdatedRecurringScenario();
@@ -114,16 +113,8 @@ public class ScenarioExecutionJob implements Job {
   // -- UTILS --
 
   private Instant cronToDate(@NotBlank final String cronExpression) {
-    CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(CronType.SPRING53);
-    CronParser parser = new CronParser(cronDefinition);
-    Cron cron = parser.parse(cronExpression);
-    ExecutionTime executionTime = ExecutionTime.forCron(cron);
-
-    Duration timeToNextExecution =
-        executionTime
-            .timeToNextExecution(ZonedDateTime.now(ZoneId.of("UTC")))
-            .orElse(Duration.ZERO);
-
-    return Instant.now().plus(timeToNextExecution);
+    return cronService
+        .getNextExecutionFromInstant(Instant.now(), ZoneId.of("UTC"), cronExpression)
+        .orElse(Instant.now());
   }
 }

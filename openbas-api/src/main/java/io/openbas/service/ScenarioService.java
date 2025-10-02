@@ -8,8 +8,8 @@ import static io.openbas.helper.StreamHelper.fromIterable;
 import static io.openbas.rest.scenario.utils.ScenarioUtils.handleCustomFilter;
 import static io.openbas.service.ImportService.EXPORT_ENTRY_ATTACHMENT;
 import static io.openbas.service.ImportService.EXPORT_ENTRY_SCENARIO;
-import static io.openbas.utils.Constants.ARTICLES;
 import static io.openbas.utils.StringUtils.duplicateString;
+import static io.openbas.utils.constants.Constants.ARTICLES;
 import static io.openbas.utils.pagination.PaginationUtils.buildPaginationCriteriaBuilder;
 import static io.openbas.utils.pagination.SortUtilsCriteriaBuilder.toSortCriteriaBuilder;
 import static java.time.Instant.now;
@@ -30,6 +30,7 @@ import io.openbas.database.specification.ScenarioSpecification;
 import io.openbas.ee.Ee;
 import io.openbas.export.Mixins;
 import io.openbas.helper.ObjectMapperHelper;
+import io.openbas.rest.dashboard.DashboardService;
 import io.openbas.rest.exception.ElementNotFoundException;
 import io.openbas.rest.exercise.exports.ExerciseFileExport;
 import io.openbas.rest.exercise.exports.VariableMixin;
@@ -41,6 +42,7 @@ import io.openbas.rest.scenario.export.ScenarioFileExport;
 import io.openbas.rest.scenario.form.ScenarioSimple;
 import io.openbas.rest.team.output.TeamOutput;
 import io.openbas.telemetry.metric_collectors.ActionMetricCollector;
+import io.openbas.utils.TargetType;
 import io.openbas.utils.mapper.ExerciseMapper;
 import io.openbas.utils.pagination.SearchPaginationInput;
 import jakarta.annotation.Resource;
@@ -113,6 +115,7 @@ public class ScenarioService {
   private final TagRuleService tagRuleService;
   private final InjectService injectService;
   private final UserService userService;
+  private final DashboardService dashboardService;
 
   private final InjectRepository injectRepository;
   private final LessonsCategoryRepository lessonsCategoryRepository;
@@ -223,6 +226,7 @@ public class ScenarioService {
     cq.multiselect(
             scenarioRoot.get("id").alias("scenario_id"),
             scenarioRoot.get("name").alias("scenario_name"),
+            scenarioRoot.get("description").alias("scenario_description"),
             scenarioRoot.get("severity").alias("scenario_severity"),
             scenarioRoot.get("category").alias("scenario_category"),
             scenarioRoot.get("recurrence").alias("scenario_recurrence"),
@@ -260,6 +264,7 @@ public class ScenarioService {
                     new RawPaginationScenario(
                         tuple.get("scenario_id", String.class),
                         tuple.get("scenario_name", String.class),
+                        tuple.get("scenario_description", String.class),
                         tuple.get("scenario_severity", Scenario.SEVERITY.class),
                         tuple.get("scenario_category", String.class),
                         tuple.get("scenario_recurrence", String.class),
@@ -349,7 +354,7 @@ public class ScenarioService {
 
       // Add the default asset groups to/from the injects
       scenario.getInjects().stream()
-          .filter(injectService::canApplyAssetGroupToInject)
+          .filter(inject -> this.injectService.canApplyTargetType(inject, TargetType.ASSETS_GROUPS))
           .forEach(
               inject ->
                   injectService.applyDefaultAssetGroupsToInject(

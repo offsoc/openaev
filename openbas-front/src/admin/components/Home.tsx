@@ -1,9 +1,12 @@
-import { Button } from '@mui/material';
-import { useNavigate } from 'react-router';
-
-import { fetchPlatformParameters } from '../../actions/Application';
+import { fetchPlatformParameters, updatePlatformParameters } from '../../actions/Application';
 import type { LoggedHelper } from '../../actions/helper';
-import { useFormatter } from '../../components/i18n';
+import {
+  fetchHomeDashboard, homeDashboardAttackPaths,
+  homeDashboardCount,
+  homeDashboardEntities,
+  homeDashboardSeries,
+  homeWidgetToEntitiesRuntime,
+} from '../../actions/settings/settings-action';
 import { useHelper } from '../../store';
 import type { PlatformSettings } from '../../utils/api-types';
 import { useAppDispatch } from '../../utils/hooks';
@@ -12,10 +15,9 @@ import { Can } from '../../utils/permissions/PermissionsProvider';
 import { ACTIONS, SUBJECTS } from '../../utils/permissions/types';
 import CustomDashboardWrapper from './workspaces/custom_dashboards/CustomDashboardWrapper';
 import NoDashboardComponent from './workspaces/custom_dashboards/NoDashboardComponent';
+import SelectDashboardButton from './workspaces/custom_dashboards/SelectDashboardButton';
 
 const Home = () => {
-  const { t } = useFormatter();
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { settings }: { settings: PlatformSettings } = useHelper((helper: LoggedHelper) => ({ settings: helper.getPlatformSettings() }));
 
@@ -23,13 +25,22 @@ const Home = () => {
     dispatch(fetchPlatformParameters());
   });
 
-  const handleRedirectionToSettings = () => {
-    navigate(`/admin/settings/parameters`);
+  const handleSelectNewDashboard = (dashboardId: string) => {
+    dispatch(updatePlatformParameters({
+      ...settings,
+      platform_home_dashboard: dashboardId,
+    }));
   };
 
   const configuration = {
     customDashboardId: settings.platform_home_dashboard,
     paramLocalStorageKey: 'custom-dashboard-home',
+    fetchCustomDashboard: fetchHomeDashboard,
+    fetchCount: homeDashboardCount,
+    fetchSeries: homeDashboardSeries,
+    fetchEntities: homeDashboardEntities,
+    fetchEntitiesRuntime: homeWidgetToEntitiesRuntime,
+    fetchAttackPaths: homeDashboardAttackPaths,
   };
 
   return (
@@ -39,7 +50,10 @@ const Home = () => {
         <NoDashboardComponent
           actionComponent={(
             <Can I={ACTIONS.ACCESS} a={SUBJECTS.PLATFORM_SETTINGS}>
-              <Button onClick={handleRedirectionToSettings} variant="text">{t('Select a dashboard in settings')}</Button>
+              <SelectDashboardButton
+                variant="text"
+                handleApplyChange={handleSelectNewDashboard}
+              />
             </Can>
           )}
         />

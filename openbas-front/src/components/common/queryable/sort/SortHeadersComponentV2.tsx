@@ -11,16 +11,15 @@ import { type SortHelpers } from './SortHelpers';
 const useStyles = makeStyles()(() => ({
   sortableHeaderItem: {
     display: 'flex',
-    fontSize: 12,
-    fontWeight: '700',
     cursor: 'pointer',
-    paddingRight: 10,
     alignItems: 'center',
+    fontWeight: '700',
   },
   headerItemText: {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    fontWeight: '700',
   },
 }));
 
@@ -47,7 +46,15 @@ const SortHeadersComponentV2: FunctionComponent<Props> = ({
   const sortHeader = (header: Header, style: CSSProperties) => {
     if (header.isSortable) {
       return (
-        <div key={header.field} className={classes.sortableHeaderItem} style={style} onClick={() => sortHelpers.handleSort(header.field)}>
+        <div
+          key={header.field}
+          className={classes.sortableHeaderItem}
+          style={{
+            ...bodyItemsStyles.bodyItem,
+            ...style,
+          }}
+          onClick={() => sortHelpers.handleSort(header.field)}
+        >
           <div className={classes.headerItemText}>{t(header.label)}</div>
           {sortHelpers.getSortBy() === header.field ? sortComponent(sortHelpers.getSortAsc()) : ''}
         </div>

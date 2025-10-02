@@ -15,7 +15,7 @@ import io.openbas.database.model.Scenario;
 import io.openbas.database.repository.ScenarioRepository;
 import io.openbas.utils.fixtures.PaginationFixture;
 import io.openbas.utils.fixtures.ScenarioFixture;
-import io.openbas.utils.mockUser.WithMockAdminUser;
+import io.openbas.utils.mockUser.WithMockUser;
 import io.openbas.utils.pagination.SearchPaginationInput;
 import io.openbas.utils.pagination.SortField;
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ public class ScenarioApiSearchTest extends IntegrationTest {
   }
 
   @Nested
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   @DisplayName("Retrieving scenarios")
   class RetrievingScenarios {
     // -- PREPARE --
@@ -160,7 +160,7 @@ public class ScenarioApiSearchTest extends IntegrationTest {
           throws Exception {
         SearchPaginationInput searchPaginationInput =
             PaginationFixture.simpleSearchWithAndOperator(
-                "scenario_category", "incident-response", contains);
+                "scenario_category", Scenario.MAIN_FOCUS_INCIDENT_RESPONSE, contains);
 
         mvc.perform(
                 post(SCENARIO_URI + "/search")

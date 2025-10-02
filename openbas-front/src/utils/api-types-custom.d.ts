@@ -2,7 +2,7 @@
 
 import type { ContractVariable } from '../actions/contract/contract';
 import type { ExpectationInput } from '../admin/components/common/injects/expectations/Expectation';
-import { type DetectionRemediation } from './api-types';
+import type * as ApiTypes from './api-types';
 
 interface BaseWidgetConfiguration {
   title?: string;
@@ -27,10 +27,10 @@ export type DateHistogramWidget = BaseWidgetConfiguration & {
   mode: 'temporal';
   date_attribute: string;
   interval: 'year' | 'month' | 'week' | 'day' | 'hour' | 'quarter';
-  series: ApiTypes.DateHistogramSeries[];
+  series: ApiTypes.Series[];
 };
 export type FlatConfiguration = BaseWidgetConfiguration & {
-  series: ApiTypes.FlatSeries[];
+  series: ApiTypes.Series[];
   widget_configuration_type: 'flat';
   date_attribute: string;
 };
@@ -49,7 +49,7 @@ export type StructuralHistogramWidget = BaseWidgetConfiguration & {
   mode: 'structural';
   field: string;
   date_attribute: string;
-  series: ApiTypes.StructuralHistogramSeries[];
+  series: ApiTypes.Series[];
   limit?: number;
 };
 export type HistogramWidget = ApiTypes.BaseWidgetConfiguration &
@@ -61,7 +61,7 @@ export type WidgetInput = Omit<ApiTypes.WidgetInput, 'widget_config'> & { widget
 export type Widget = Omit<ApiTypes.Widget, 'widget_config'> & { widget_config: DateHistogramWidget | StructuralHistogramWidget | ListConfiguration | FlatConfiguration };
 type PayloadCreateInputOmit = 'payload_type' | 'payload_source' | 'payload_status' | 'payload_created_at' | 'payload_id' | 'payload_updated_at' | 'payload_output_parsers';
 type PayloadCreateInputMore = {
-  remediations?: Map<string, DetectionRemediation>;
+  remediations?: Record<string, DetectionRemediationInput>;
   payload_output_parsers?: (
     Omit<ApiTypes.OutputParser, 'output_parser_created_at' | 'output_parser_updated_at' | 'output_parser_id' | 'output_parser_contract_output_elements'>
     & {
@@ -80,6 +80,12 @@ export type PayloadCreateInput = Omit<ApiTypes.BasePayload, PayloadCreateInputOm
 
 export type ContractType = 'text' | 'number' | 'checkbox' | 'textarea' | 'tags' | 'select' | 'choice' | 'article' | 'challenge' | 'dependency-select' | 'attachment' | 'team' | 'expectation' | 'asset' | 'asset-group' | 'payload' | 'targeted-asset';
 
+export interface ChoiceItem {
+  label: string;
+  value: string;
+  information: string;
+}
+
 export interface ContractElement {
   key: string;
   mandatory: boolean;
@@ -87,24 +93,42 @@ export interface ContractElement {
   label: string;
   readOnly: boolean;
   mandatoryGroups?: string[];
-  mandatoryConditionField?: string;
+  mandatoryConditionFields?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mandatoryConditionValues?: { [key: string]: any };
+  visibleConditionFields?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  visibleConditionValues?: { [key: string]: any };
   linkedFields?: {
     key: string;
     type: string;
   }[];
-  linkedValues?: string[];
   cardinality: '1' | 'n';
-  defaultValue: string | string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultValue: any;
   richText?: boolean;
   tupleFilePrefix?: string;
   predefinedExpectations?: ExpectationInput[];
   dependencyField?: string;
-  choices?: Record<string, string> | {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  choices?: Record<string, any> | ChoiceItem[];
+  contractAttachment?: {
+    key: string;
     label: string;
-    value: string;
-    information: string;
   }[];
 }
+
+export type EnhancedContractElement = ContractElement & {
+  originalKey: string;
+  isInjectContentType: boolean;
+  isVisible: boolean;
+  isInMandatoryGroup: boolean;
+  mandatoryGroupContractElementLabels: string;
+  settings?: {
+    rows?: number;
+    required?: boolean;
+  };
+};
 
 export type InjectorContractConverted = Omit<InjectorContract, 'convertedContent'> & {
   convertedContent: {

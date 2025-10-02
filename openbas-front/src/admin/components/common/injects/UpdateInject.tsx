@@ -1,10 +1,13 @@
 import { HelpOutlined } from '@mui/icons-material';
+import { TabContext, TabPanel } from '@mui/lab';
 import { Avatar, Tab, Tabs } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { type SyntheticEvent, useContext, useEffect, useRef, useState } from 'react';
+import { type SyntheticEvent, useContext, useEffect, useState } from 'react';
+import { makeStyles } from 'tss-react/mui';
 
 import { fetchInject } from '../../../../actions/Inject';
 import { type InjectOutputType, type InjectStore } from '../../../../actions/injects/Inject';
+import { fetchDocumentsPayloadByInject } from '../../../../actions/injects/inject-action';
 import { type InjectHelper } from '../../../../actions/injects/inject-helper';
 import Drawer from '../../../../components/common/Drawer';
 import { useFormatter } from '../../../../components/i18n';
@@ -12,7 +15,7 @@ import PlatformIcon from '../../../../components/PlatformIcon';
 import { useHelper } from '../../../../store';
 import {
   type Article,
-  type AttackPattern,
+  type AttackPattern, type Document,
   type Inject,
   type InjectInput,
   type KillChainPhase, type Variable,
@@ -21,13 +24,15 @@ import { type InjectorContractConverted } from '../../../../utils/api-types-cust
 import { useAppDispatch } from '../../../../utils/hooks';
 import useDataLoader from '../../../../utils/hooks/useDataLoader';
 import { AbilityContext } from '../../../../utils/permissions/PermissionsProvider';
-import { ACTIONS, SUBJECTS } from '../../../../utils/permissions/types';
-import { isNotEmptyField } from '../../../../utils/utils';
+import { ACTIONS, INHERITED_CONTEXT, SUBJECTS } from '../../../../utils/permissions/types';
+import { arrayToRecord, isNotEmptyField } from '../../../../utils/utils';
+import PayloadComponent from '../../payloads/PayloadComponent';
 import { PermissionsContext } from '../Context';
 import InjectForm from './form/InjectForm';
 import InjectCardComponent from './InjectCardComponent';
 import InjectIcon from './InjectIcon';
 import UpdateInjectLogicalChains from './UpdateInjectLogicalChains';
+
 interface Props {
   open: boolean;
   handleClose: () => void;
@@ -40,6 +45,8 @@ interface Props {
   uriVariable?: string;
   variablesFromExerciseOrScenario?: Variable[];
 }
+
+const useStyles = makeStyles()(() => ({ tabPanel: { padding: 0 } }));
 
 const UpdateInject: React.FC<Props> = ({
   open,
@@ -55,25 +62,42 @@ const UpdateInject: React.FC<Props> = ({
 }) => {
   const { t } = useFormatter();
   const theme = useTheme();
+  const { classes } = useStyles();
   const dispatch = useAppDispatch();
-  const drawerRef = useRef(null);
-  const [availableTabs] = useState<string[]>(['Inject details', 'Logical chains']);
-  const [activeTab, setActiveTab] = useState<null | string>(availableTabs[0]);
   const [isInjectLoading, setIsInjectLoading] = useState(true);
-  const { permissions } = useContext(PermissionsContext);
+
+  const { permissions, inherited_context } = useContext(PermissionsContext);
   const ability = useContext(AbilityContext);
+
+  // Setup tabs
+  const [availableTabs, setAvailableTabs] = useState<string[]>(['Inject details', 'Logical chains']);
+  const [activeTab, setActiveTab] = useState<string>(availableTabs[0]);
 
   // Fetching data
   const { inject }: { inject: InjectStore } = useHelper((helper: InjectHelper) => ({ inject: helper.getInject(injectId) }));
+  const contractPayload = inject?.inject_injector_contract?.injector_contract_payload;
+  const injectorContract = inject?.inject_injector_contract;
+  const [documentsMap, setDocumentsMap] = useState<Record<string, Document> | null>(null);
 
   useDataLoader(() => {
     setIsInjectLoading(true);
-    dispatch(fetchInject(injectId)).then(() => setIsInjectLoading(false));
+    dispatch(fetchInject(injectId)).then(() => {
+      const payloadId = inject?.inject_injector_contract?.injector_contract_payload?.payload_id;
+      if (payloadId) {
+        setAvailableTabs(['Inject details', 'Payload info', 'Logical chains']);
+      }
+      setIsInjectLoading(false);
+    });
   });
 
   // Selection
   const handleTabChange = (_: SyntheticEvent, newValue: string) => {
     setActiveTab(newValue);
+
+    if (newValue === 'Payload info' && !documentsMap) {
+      fetchDocumentsPayloadByInject(injectId, contractPayload?.payload_id)
+        .then(documents => setDocumentsMap(arrayToRecord<Document, 'document_id'>(documents, 'document_id')));
+    }
   };
 
   const [injectorContractContent, setInjectorContractContent] = useState<InjectorContractConverted['convertedContent']>();
@@ -83,8 +107,6 @@ const UpdateInject: React.FC<Props> = ({
     }
   }, [inject]);
 
-  const contractPayload = inject?.inject_injector_contract?.injector_contract_payload;
-  const injectorContract = inject?.inject_injector_contract;
   const getInjectHeaderTitle = (): string => {
     if (injectorContract?.injector_contract_needs_executor && inject?.inject_attack_patterns?.length !== 0) {
       return `${inject?.inject_kill_chain_phases?.map((value: KillChainPhase) => value.phase_name)?.join(', ')} / ${inject?.inject_attack_patterns?.map((value: AttackPattern) => value.attack_pattern_external_id)?.join(', ')}`;
@@ -94,12 +116,52 @@ const UpdateInject: React.FC<Props> = ({
     }
     return injectorContract?.injector_contract_injector_type_name ? t(injectorContract?.injector_contract_injector_type_name) : '';
   };
+
+  const injectFormContent = (
+    <InjectCardComponent
+      avatar={injectorContractContent
+        ? (
+            <InjectIcon
+              type={contractPayload ? (contractPayload.payload_collector_type ?? contractPayload.payload_type) : injectorContract?.injector_contract_injector_type}
+              isPayload={isNotEmptyField(contractPayload?.payload_collector_type ?? contractPayload?.payload_type)}
+            />
+          ) : (
+            <Avatar sx={{
+              width: 24,
+              height: 24,
+            }}
+            >
+              <HelpOutlined />
+            </Avatar>
+          )}
+      title={getInjectHeaderTitle()}
+      action={(
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+        }}
+        >
+          {inject?.inject_injector_contract?.injector_contract_platforms?.map(
+            platform => (
+              <PlatformIcon
+                key={platform}
+                width={20}
+                platform={platform}
+                marginRight={theme.spacing(2)}
+              />
+            ),
+          )}
+        </div>
+      )}
+      content={inject?.inject_title}
+    />
+
+  );
   return (
     <Drawer
       open={open}
       handleClose={handleClose}
       title={t('Update the inject')}
-      PaperProps={{ ref: drawerRef }}
       disableEnforceFocus
       containerStyle={{
         display: 'flex',
@@ -107,72 +169,66 @@ const UpdateInject: React.FC<Props> = ({
         gap: theme.spacing(2),
       }}
     >
-      <>
+      <TabContext value={activeTab}>
         {!isAtomic && (
           <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth">
-            {availableTabs.map((tab) => {
-              return (
-                <Tab key={tab} label={tab} value={tab} />
-              );
-            })}
+            {availableTabs.map(tab => (
+              <Tab key={tab} label={t(tab)} value={tab} />
+            ))}
           </Tabs>
         )}
-        <InjectCardComponent
-          avatar={injectorContractContent
-            ? (
-                <InjectIcon
-                  type={contractPayload ? (contractPayload.payload_collector_type ?? contractPayload.payload_type) : injectorContract?.injector_contract_injector_type}
-                  isPayload={isNotEmptyField(contractPayload?.payload_collector_type ?? contractPayload?.payload_type)}
-                />
-              ) : (
-                <Avatar sx={{
-                  width: 24,
-                  height: 24,
-                }}
-                >
-                  <HelpOutlined />
-                </Avatar>
-              )}
-          title={getInjectHeaderTitle()}
-          action={(
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            >
-              {inject?.inject_injector_contract?.injector_contract_platforms?.map(
-                platform => <PlatformIcon key={platform} width={20} platform={platform} marginRight={theme.spacing(2)} />,
-              )}
-            </div>
+        {/* Inject details */}
+        <TabPanel value="Inject details" keepMounted className={classes.tabPanel}>
+          {injectFormContent}
+          {!isInjectLoading && (
+            <InjectForm
+              handleClose={handleClose}
+              disabled={
+                !injectorContractContent
+                || permissions.readOnly
+                || (inherited_context === INHERITED_CONTEXT.NONE
+                  && ability.cannot(ACTIONS.MANAGE, SUBJECTS.RESOURCE, injectId))
+              }
+              isAtomic={isAtomic}
+              defaultInject={inject}
+              injectorContractContent={injectorContractContent}
+              onSubmitInject={(data: InjectInput) => onUpdateInject(data as Inject)}
+              articlesFromExerciseOrScenario={articlesFromExerciseOrScenario}
+              uriVariable={uriVariable}
+              variablesFromExerciseOrScenario={variablesFromExerciseOrScenario}
+            />
           )}
-          content={inject?.inject_title}
-        />
+        </TabPanel>
 
-        {!isInjectLoading && (isAtomic || activeTab === 'Inject details') && (
-          <InjectForm
-            handleClose={handleClose}
-            openDetails
-            disabled={!injectorContractContent || permissions.readOnly || ability.cannot(ACTIONS.MANAGE, SUBJECTS.RESOURCE, injectId)}
-            drawerRef={drawerRef}
-            isAtomic={isAtomic}
-            defaultInject={inject}
-            injectorContractContent={injectorContractContent}
-            onSubmitInject={(data: InjectInput) => onUpdateInject(data as Inject)}
-            articlesFromExerciseOrScenario={articlesFromExerciseOrScenario}
-            uriVariable={uriVariable}
-            variablesFromExerciseOrScenario={variablesFromExerciseOrScenario}
-          />
+        {/* Payload info */}
+        {contractPayload && !isAtomic && (
+          <TabPanel value="Payload info" keepMounted className={classes.tabPanel}>
+            {!isInjectLoading && (
+              <PayloadComponent
+                documentsMap={documentsMap}
+                selectedPayload={contractPayload}
+              />
+            )}
+          </TabPanel>
         )}
-        {(!isInjectLoading && !isAtomic && activeTab === 'Logical chains') && (
-          <UpdateInjectLogicalChains
-            inject={inject}
-            handleClose={handleClose}
-            onUpdateInject={massUpdateInject}
-            injects={injects}
-            isDisabled={!permissions.canManage && ability.cannot(ACTIONS.MANAGE, SUBJECTS.RESOURCE, injectId)}
-          />
-        )}
-      </>
+
+        {/* Logical chains */}
+        <TabPanel value="Logical chains" keepMounted className={classes.tabPanel}>
+          {injectFormContent}
+          {!isInjectLoading && !isAtomic && (
+            <UpdateInjectLogicalChains
+              inject={inject}
+              handleClose={handleClose}
+              onUpdateInject={massUpdateInject}
+              injects={injects}
+              isDisabled={
+                !permissions.canManage
+                && ability.cannot(ACTIONS.MANAGE, SUBJECTS.RESOURCE, injectId)
+              }
+            />
+          )}
+        </TabPanel>
+      </TabContext>
     </Drawer>
   );
 };

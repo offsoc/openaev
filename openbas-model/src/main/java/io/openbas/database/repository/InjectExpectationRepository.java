@@ -2,7 +2,6 @@ package io.openbas.database.repository;
 
 import io.openbas.database.model.InjectExpectation;
 import io.openbas.database.raw.RawInjectExpectation;
-import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
@@ -38,15 +37,6 @@ public interface InjectExpectationRepository
               + "and i.type = 'CHALLENGE' and i.user.id = :userId ")
   List<InjectExpectation> findChallengeExpectationsByExerciseAndUser(
       @Param("exerciseId") String exerciseId, @Param("userId") String userId);
-
-  @Query(
-      value =
-          "select i from InjectExpectation i where i.exercise.id = :exerciseId "
-              + "and i.type = 'CHALLENGE' and i.challenge.id = :challengeId and i.team.id in (:teamIds)")
-  List<InjectExpectation> findChallengeExpectations(
-      @Param("exerciseId") String exerciseId,
-      @Param("teamIds") List<String> teamIds,
-      @Param("challengeId") String challengeId);
 
   @Query(
       value =
@@ -116,16 +106,7 @@ public interface InjectExpectationRepository
       @Param("injectId") @NotBlank final String injectId,
       @Param("teamId") @NotBlank final String teamId);
 
-  @Query(
-      value =
-          "SELECT i FROM InjectExpectation i "
-              + "WHERE i.inject.id = :injectId "
-              + "AND ((:assetGroupId IS NULL AND i.assetGroup IS NULL) OR (:assetGroupId IS NOT NULL AND i.assetGroup.id = :assetGroupId)) "
-              + "AND i.agent.id = :agentId")
-  List<InjectExpectation> findAllByInjectAndAssetGroupAndAgent(
-      @Param("injectId") @NotBlank String injectId,
-      @Param("assetGroupId") @Nullable String assetGroupId,
-      @Param("agentId") @NotBlank String agentId);
+  // -- INJECT EXPECTATION TECHNICAL --
 
   @Query(
       value =
@@ -140,18 +121,6 @@ public interface InjectExpectationRepository
       value =
           "SELECT i FROM InjectExpectation i "
               + "WHERE i.inject.id = :injectId "
-              + "AND ((:assetGroupId IS NULL AND i.assetGroup IS NULL) OR (:assetGroupId IS NOT NULL AND i.assetGroup.id = :assetGroupId)) "
-              + "AND i.asset.id = :assetId "
-              + "AND i.agent IS NULL")
-  List<InjectExpectation> findAllByInjectAndAssetGroupAndAsset(
-      @Param("injectId") @NotBlank String injectId,
-      @Param("assetGroupId") @Nullable String assetGroupId,
-      @Param("assetId") @NotBlank String assetId);
-
-  @Query(
-      value =
-          "SELECT i FROM InjectExpectation i "
-              + "WHERE i.inject.id = :injectId "
               + "AND i.asset.id = :assetId "
               + "AND i.agent IS NULL "
               + "ORDER BY i.type, i.createdAt")
@@ -160,7 +129,11 @@ public interface InjectExpectationRepository
 
   @Query(
       value =
-          "select i from InjectExpectation i where i.inject.id = :injectId and i.assetGroup.id = :assetGroupId and i.asset is null and i.agent is null")
+          "SELECT i FROM InjectExpectation i "
+              + "WHERE i.inject.id = :injectId "
+              + "AND i.assetGroup.id = :assetGroupId "
+              + "AND i.asset IS NULL "
+              + "AND i.agent IS NULL ")
   List<InjectExpectation> findAllByInjectAndAssetGroup(
       @Param("injectId") @NotBlank final String injectId,
       @Param("assetGroupId") @NotBlank final String assetGroupId);
@@ -178,26 +151,7 @@ public interface InjectExpectationRepository
               + "i.inject_expectation_type AS inject_expectation_type, "
               + "i.user_id AS user_id, "
               + "i.inject_expectation_score AS inject_expectation_score, "
-              + "i.inject_expectation_expected_score AS inject_expectation_expected_score, "
-              + "i.inject_expectation_group AS inject_expectation_group "
-              + "FROM injects_expectations i "
-              + "WHERE i.inject_id IN (:injectIds) ; ",
-      nativeQuery = true)
-  Set<RawInjectExpectation> rawByInjectIds(@Param("injectIds") final Set<String> injectIds);
-
-  @Query(
-      value =
-          "SELECT "
-              + "i.inject_expectation_id AS inject_expectation_id, "
-              + "i.inject_id AS inject_id, "
-              + "i.exercise_id AS exercise_id, "
-              + "i.team_id AS team_id, "
-              + "i.agent_id AS agent_id, "
-              + "i.asset_id AS asset_id, "
-              + "i.asset_group_id AS asset_group_id, "
-              + "i.inject_expectation_type AS inject_expectation_type, "
-              + "i.user_id AS user_id, "
-              + "i.inject_expectation_score AS inject_expectation_score, "
+              + "i.inject_expectation_results AS inject_expectation_results, "
               + "i.inject_expectation_expected_score AS inject_expectation_expected_score, "
               + "i.inject_expectation_group AS inject_expectation_group "
               + "FROM injects_expectations i "
@@ -233,6 +187,11 @@ public interface InjectExpectationRepository
   List<RawInjectExpectation> rawForComputeGlobalByExerciseIds(
       @Param("exerciseIds") Set<String> exerciseIds);
 
+  @Query(
+      value =
+          "select i from InjectExpectation i where i.inject.id in :injectIds and i.agent is null and i.user is null")
+  List<InjectExpectation> findAllForGlobalScoreByInjects(@Param("injectIds") Set<String> injectIds);
+
   // -- INDEXING --
 
   @Query(
@@ -258,29 +217,34 @@ public interface InjectExpectationRepository
       ie.agent_id,
       ie.asset_id,
       ie.asset_group_id,
-      array_agg(ap.attack_pattern_id) AS attack_pattern_ids,
+      i.inject_title as inject_title,
+      MAX(ins.tracking_sent_date) AS tracking_sent_date,
+      array_agg(DISTINCT ap.attack_pattern_id) FILTER ( WHERE ap.attack_pattern_id IS NOT NULL ) AS attack_pattern_ids,
       MAX(se.scenario_id) AS scenario_id,
-      array_agg(DISTINCT c.collector_security_platform) FILTER ( WHERE c.collector_security_platform IS NOT NULL ) AS security_platform_ids
+      array_agg(DISTINCT c.collector_security_platform) FILTER ( WHERE c.collector_security_platform IS NOT NULL ) ||
+      array_agg(DISTINCT a.asset_id) FILTER ( WHERE a.asset_id IS NOT NULL ) AS security_platform_ids
     FROM injects_expectations ie
     LEFT JOIN exercises ex ON ex.exercise_id = ie.exercise_id
     LEFT JOIN injects i ON i.inject_id = ie.inject_id
+    LEFT JOIN injects_statuses ins ON ins.status_inject = i.inject_id
     LEFT JOIN injectors_contracts ic ON ic.injector_contract_id = i.inject_injector_contract
     LEFT JOIN injectors_contracts_attack_patterns ic_ap ON ic_ap.injector_contract_id = ic.injector_contract_id
     LEFT JOIN attack_patterns ap ON ap.attack_pattern_id = ic_ap.attack_pattern_id
     LEFT JOIN users u ON u.user_id = ie.user_id
     LEFT JOIN teams t ON t.team_id = ie.team_id
-    LEFT JOIN agents agent ON agent.agent_id = ie.agent_id
     LEFT JOIN assets asset ON asset.asset_id = ie.asset_id
     LEFT JOIN asset_groups ag ON ag.asset_group_id = ie.asset_group_id
     LEFT JOIN scenarios_exercises se ON se.exercise_id = ie.exercise_id
     LEFT JOIN LATERAL jsonb_array_elements(ie.inject_expectation_results::jsonb) AS r(elem) ON true
-    LEFT JOIN collectors c ON r.elem->>'sourceId' = c.collector_id::text OR r.elem->>'sourceType' = 'security-platform'
+    LEFT JOIN collectors c ON r.elem->>'sourceId' = c.collector_id::text
+    LEFT JOIN assets a ON r.elem->>'sourceId' = a.asset_id::text
     GROUP BY
       ie.inject_expectation_id,
-      ic.injector_contract_id
+      ic.injector_contract_id,
+      i.inject_title
     )
     SELECT * FROM inject_expectation_data ied
-    WHERE ied.inject_expectation_updated_at > :from
+    WHERE ied.inject_expectation_updated_at > :from AND ied.agent_id IS NULL
     ORDER BY ied.inject_expectation_updated_at ASC
     LIMIT 500
     """,

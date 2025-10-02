@@ -19,6 +19,20 @@ export function recordEntries<K extends PropertyKey, T>(object: Record<K, T>) {
   return Object.entries(object) as ([K, T])[];
 }
 
+export function arrayToRecord<T, K extends keyof T>(
+  list: T[],
+  key: K,
+): Record<string, T> | null {
+  if (!list || !list.length)
+    return null;
+
+  return list.reduce((acc, item) => {
+    const recordKey = String(item[key]);
+    acc[recordKey] = item;
+    return acc;
+  }, {} as Record<string, T>);
+}
+
 export const copyToClipboard = (t: (text: string) => string, text: string) => {
   if ('clipboard' in navigator) {
     navigator.clipboard.writeText(text);
@@ -103,10 +117,15 @@ export const debounce = <T>(func: (...param: T[]) => void, timeout = 500) => {
 // the argument type here is an exported enum type from Java; it's supposed to be a union of enum strings
 // see api-types.d.ts
 // currently we copy/paste the generated enum types here since they don't exist as a standalone type in TS
-export const isFeatureEnabled = (feature: '_RESERVED') => {
+export const isFeatureEnabled = (feature: '_RESERVED' | 'STIX_SECURITY_COVERAGE_FOR_VULNERABILITIES') => {
   const { settings } = useHelper((helper: LoggedHelper) => {
     return { settings: helper.getPlatformSettings() };
   });
 
   return (settings.enabled_dev_features ?? []).includes(feature);
+};
+
+export const getUrl = (url: string, base: string): string => {
+  const urlToReturn = new URL(url, base);
+  return urlToReturn.toString();
 };

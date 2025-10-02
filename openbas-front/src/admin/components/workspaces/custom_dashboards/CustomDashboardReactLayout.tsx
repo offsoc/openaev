@@ -1,19 +1,19 @@
-import { OpenInFullOutlined } from '@mui/icons-material';
-import { Box, IconButton, Paper, Typography } from '@mui/material';
+import { InfoOutlined, OpenInFullOutlined } from '@mui/icons-material';
+import { Box, darken, IconButton, Paper, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { type CSSProperties, type FunctionComponent, useContext, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type FunctionComponent, type SyntheticEvent, useContext, useEffect, useState } from 'react';
 import RGL, { type Layout, WidthProvider } from 'react-grid-layout';
 
 import { updateCustomDashboardWidgetLayout } from '../../../../actions/custom_dashboards/customdashboardwidget-action';
 import { ErrorBoundary } from '../../../../components/Error';
 import { useFormatter } from '../../../../components/i18n';
-import Loader from '../../../../components/Loader';
 import { type Widget } from '../../../../utils/api-types-custom';
-import { CustomDashboardContext, type ParameterOption } from './CustomDashboardContext';
-import { LAST_QUARTER_TIME_RANGE } from './widgets/configuration/common/TimeRangeUtils';
+import { CustomDashboardContext } from './CustomDashboardContext';
 import WidgetPopover from './widgets/WidgetPopover';
 import { getWidgetTitle } from './widgets/WidgetUtils';
 import WidgetViz from './widgets/WidgetViz';
+
+const ReactGridLayout = WidthProvider(RGL);
 
 const CustomDashboardReactLayout: FunctionComponent<{
   readOnly: boolean;
@@ -22,34 +22,15 @@ const CustomDashboardReactLayout: FunctionComponent<{
   // Standard hooks
   const theme = useTheme();
   const { t } = useFormatter();
-  const ReactGridLayout = useMemo(() => WidthProvider(RGL), []);
   const [fullscreenWidgets, setFullscreenWidgets] = useState<Record<Widget['widget_id'], boolean | never>>({});
-  const [loading, setLoading] = useState(true);
-  const { customDashboard, setCustomDashboard, customDashboardParameters, setCustomDashboardParameters } = useContext(CustomDashboardContext);
+  const { customDashboard, setCustomDashboard } = useContext(CustomDashboardContext);
+  const [tooltipMessage, setTooltipMessage] = useState<React.ReactNode>('');
 
   const [idToResize, setIdToResize] = useState<string | null>(null);
   const handleResize = (updatedWidget: string | null) => setIdToResize(updatedWidget);
 
   useEffect(() => {
     window.dispatchEvent(new Event('resize'));
-    const params: Record<string, ParameterOption> = {};
-    customDashboard?.custom_dashboard_parameters?.forEach((p: {
-      custom_dashboards_parameter_type: string;
-      custom_dashboards_parameter_id: string;
-    }) => {
-      const value = customDashboardParameters[p.custom_dashboards_parameter_id]?.value;
-      if ('timeRange' === p.custom_dashboards_parameter_type && !value) {
-        params[p.custom_dashboards_parameter_id] = {
-          value: LAST_QUARTER_TIME_RANGE,
-          hidden: false,
-        };
-      }
-    });
-    setCustomDashboardParameters(prev => ({
-      ...prev,
-      ...params,
-    }));
-    setLoading(false);
   }, [customDashboard]);
 
   const handleWidgetUpdate = (widget: Widget) => {
@@ -107,10 +88,6 @@ const CustomDashboardReactLayout: FunctionComponent<{
     });
   };
 
-  if (loading) {
-    return <Loader />;
-  }
-
   return (
     <ReactGridLayout
       style={style}
@@ -118,12 +95,15 @@ const CustomDashboardReactLayout: FunctionComponent<{
       margin={[0, 20]}
       rowHeight={50}
       cols={12}
-      draggableCancel=".noDrag"
+      draggableCancel=".noDrag,.MuiAutocomplete-paper,.MuiModal-backdrop,.MuiPopover-paper,.MuiDialog-paper"
       isDraggable={!readOnly}
       isResizable={!readOnly}
-      onLayoutChange={onLayoutChange}
       onResizeStart={(_, { i }) => handleResize(i)}
-      onResizeStop={() => handleResize(null)}
+      onResizeStop={(layouts) => {
+        handleResize(null);
+        onLayoutChange(layouts);
+      }}
+      onDragStop={onLayoutChange}
     >
       {customDashboard?.custom_dashboard_widgets?.map((widget) => {
         const layout = {
@@ -137,6 +117,8 @@ const CustomDashboardReactLayout: FunctionComponent<{
           ...fullscreenWidgets,
           [widget.widget_id]: fullscreen,
         });
+        // Make the theme.info.main color a bit darker
+        const darkerInfoStyle = darken(theme.palette.info.main, 0.7);
         return (
           <Paper
             key={widget.widget_id}
@@ -151,23 +133,50 @@ const CustomDashboardReactLayout: FunctionComponent<{
             <Box
               display="flex"
               flexDirection="row"
-              justifyContent="space-between"
               alignItems="center"
             >
-              <Typography
-                variant="h4"
-                sx={{
-                  margin: 0,
-                  paddingLeft: theme.spacing(2),
-                  paddingTop: theme.spacing(2.5),
-                  textTransform: 'uppercase',
-                }}
-              >
-                {getWidgetTitle(widget.widget_config.title, widget.widget_type, t)}
-              </Typography>
               <Box
                 display="flex"
                 flexDirection="row"
+                alignItems="center"
+                paddingTop={theme.spacing(2.5)}
+              >
+                <Typography
+                  variant="h4"
+                  sx={{
+                    margin: 0,
+                    paddingLeft: theme.spacing(2),
+                    paddingRight: theme.spacing(1),
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {getWidgetTitle(widget.widget_config.title, widget.widget_type, t)}
+                </Typography>
+                {'number' === widget.widget_type && (
+                  <Tooltip
+                    title={tooltipMessage}
+                    placement="right"
+                    slotProps={{
+                      tooltip: {
+                        sx: {
+                          bgcolor: darkerInfoStyle,
+                          color: theme.palette.getContrastText(darkerInfoStyle),
+                          boxShadow: theme.shadows[1],
+                        },
+                      },
+                    }}
+                  >
+                    <InfoOutlined
+                      fontSize="small"
+                      color="primary"
+                    />
+                  </Tooltip>
+                )}
+              </Box>
+              <Box
+                display="flex"
+                flexDirection="row"
+                marginLeft="auto"
               >
                 {widget.widget_type === 'security-coverage' && (
                   <IconButton
@@ -199,11 +208,14 @@ const CustomDashboardReactLayout: FunctionComponent<{
                   minHeight={0}
                   padding={theme.spacing(1, 2, 2)}
                   overflow={'number' === widget.widget_type ? 'hidden' : 'auto'}
+                  onMouseDown={(e: SyntheticEvent) => e.stopPropagation()}
+                  onTouchStart={(e: SyntheticEvent) => e.stopPropagation()}
                 >
                   <WidgetViz
                     widget={widget}
                     fullscreen={fullscreenWidgets[widget.widget_id]}
                     setFullscreen={setFullscreen}
+                    setTooltipMessage={setTooltipMessage}
                   />
                 </Box>
               )}

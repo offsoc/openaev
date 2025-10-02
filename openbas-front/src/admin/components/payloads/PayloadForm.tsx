@@ -1,12 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Box, Button, Tab, Tabs } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { type FormEvent, type SyntheticEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect } from 'react';
 import { type FieldValues, FormProvider, type SubmitHandler, useForm, useWatch } from 'react-hook-form';
 import { z, type ZodTypeAny } from 'zod';
 
+import Tabs, { type TabsEntry } from '../../../components/common/tabs/Tabs';
+import useTabs from '../../../components/common/tabs/useTabs';
 import { useFormatter } from '../../../components/i18n';
-import { type DetectionRemediation } from '../../../utils/api-types';
+import { type DetectionRemediationInput } from '../../../utils/api-types';
 import { type PayloadCreateInput } from '../../../utils/api-types-custom';
 import useEnterpriseEdition from '../../../utils/hooks/useEnterpriseEdition';
 import EEChip from '../common/entreprise_edition/EEChip';
@@ -15,7 +17,6 @@ import GeneralFormTab from './form/GeneralFormTab';
 import OutputFormTab from './form/OutputFormTab';
 import RemediationFormTabs from './form/RemediationFormTabs';
 import { hasSpecificDirtyFieldAI, trackedFields } from './utils/payloadFormToPayloadInput';
-import SnapshotRemediationProvider from './utils/SnapshotRemediationProvider';
 import { useSnapshotRemediation } from './utils/useSnapshotRemediation';
 
 interface Props {
@@ -50,7 +51,7 @@ const PayloadForm = ({
     payload_prerequisites: [],
     payload_output_parsers: [],
     payload_execution_arch: 'ALL_ARCHITECTURES',
-    remediations: new Map<string, DetectionRemediation>(),
+    remediations: new Map<string, DetectionRemediationInput>(),
   },
 }: Props) => {
   const { t } = useFormatter();
@@ -61,44 +62,6 @@ const PayloadForm = ({
     setEEFeatureDetectedInfo,
   } = useEnterpriseEdition();
   const { snapshot } = useSnapshotRemediation();
-
-  const tabs = [{
-    key: 'General',
-    label: 'General',
-  }, {
-    key: 'Commands',
-    label: 'Commands',
-  }, {
-    key: 'Output',
-    label: 'Output',
-  }, {
-    key: 'Remediation',
-    label: (
-      <Box display="flex" alignItems="center">
-        {t('Remediation')}
-        {!isValidatedEnterpriseEdition && (
-          <EEChip
-            style={{ marginLeft: theme.spacing(1) }}
-            clickable
-            featureDetectedInfo={t('Remediation')}
-          />
-        )}
-      </Box>
-    ),
-  }];
-  const [activeTab, setActiveTab] = useState(tabs[0].key);
-
-  useEffect(() => {
-    if (activeTab === 'Remediation' && !isValidatedEnterpriseEdition) {
-      setActiveTab('General');
-      setEEFeatureDetectedInfo(t('Remediation'));
-      openEnterpriseEditionDialog();
-    }
-  }, [activeTab, isValidatedEnterpriseEdition]);
-
-  const handleActiveTabChange = (_: SyntheticEvent, newValue: string) => {
-    setActiveTab(newValue);
-  };
 
   const regexGroupObject = z.object({
     ...editing && { regex_group_id: z.string().optional() },
@@ -157,7 +120,7 @@ const PayloadForm = ({
     payload_arguments: z.array(payloadArgumentZodObject).optional().describe('Commands-tab'),
     payload_prerequisites: z.array(payloadPrerequisiteZodObject).optional().describe('Commands-tab'),
     payload_output_parsers: z.array(outputParserObject).optional().describe('Output-tab'),
-    remediations: z.any().optional(),
+    remediations: z.any(),
   };
 
   const commandSchema = z.object({
@@ -209,13 +172,39 @@ const PayloadForm = ({
     return fieldSchema?.description?.replace('-tab', '');
   };
 
+  const tabEntries: TabsEntry[] = [{
+    key: 'General',
+    label: 'General',
+  }, {
+    key: 'Commands',
+    label: 'Commands',
+  }, {
+    key: 'Output',
+    label: 'Output',
+  }, {
+    key: 'Remediation',
+    label: (
+      <Box display="flex" alignItems="center">
+        {t('Remediation')}
+        {!isValidatedEnterpriseEdition && (
+          <EEChip
+            style={{ marginLeft: theme.spacing(1) }}
+            clickable
+            featureDetectedInfo={t('Remediation')}
+          />
+        )}
+      </Box>
+    ),
+  }];
+  const { currentTab, handleChangeTab } = useTabs(tabEntries[0].key);
+
   const handleSubmitWithoutDefault = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const isValid = await methods.trigger();
     if (!isValid) {
       const firstErrorField = Object.keys(errors)[0];
       const tabName = getTabForField(firstErrorField);
-      if (tabName) setActiveTab(tabName);
+      if (tabName) handleChangeTab(tabName);
     } else {
       handleSubmit(onSubmit)(e);
     }
@@ -226,10 +215,10 @@ const PayloadForm = ({
   });
 
   useEffect(() => {
-    const remediations = methods.getValues('remediations') ?? {};
+    const remediations = (methods.getValues('remediations') ?? {}) as Record<string, DetectionRemediationInput>;
     Object.entries(remediations).forEach(([key, value]) => {
-      const currentDetection = value as DetectionRemediation;
-      const fieldName = 'remediations.' + key as keyof PayloadCreateInput;
+      const currentDetection = value;
+      const fieldName = `remediations.${key}` as const;
 
       if (hasSpecificDirtyFieldAI(defaultValues, snapshot?.get(key)?.trackedFields, trackedUseWatch as FieldValues)) {
         currentDetection.author_rule = currentDetection.author_rule !== 'HUMAN' ? 'AI_OUTDATED' : currentDetection.author_rule;
@@ -243,8 +232,16 @@ const PayloadForm = ({
     });
   }, [trackedUseWatch]);
 
+  useEffect(() => {
+    if (currentTab === 'Remediation' && !isValidatedEnterpriseEdition) {
+      handleChangeTab('General');
+      setEEFeatureDetectedInfo(t('Remediation'));
+      openEnterpriseEditionDialog();
+    }
+  }, [currentTab, isValidatedEnterpriseEdition]);
+
   return (
-    <SnapshotRemediationProvider>
+    <>
       <FormProvider {...methods}>
         <form
           style={{
@@ -258,26 +255,24 @@ const PayloadForm = ({
           onSubmit={handleSubmitWithoutDefault}
         >
           <Tabs
-            value={activeTab}
-            onChange={handleActiveTabChange}
-            aria-label="tabs for payload form"
-          >
-            {tabs.map(tab => <Tab key={tab.key} label={tab.label} value={tab.key} />)}
-          </Tabs>
+            entries={tabEntries}
+            currentTab={currentTab}
+            onChange={newValue => handleChangeTab(newValue)}
+          />
 
-          {activeTab === 'General' && (
+          {currentTab === 'General' && (
             <GeneralFormTab />
           )}
 
-          {activeTab === 'Commands' && (
+          {currentTab === 'Commands' && (
             <CommandsFormTab disabledPayloadType={editing} />
           )}
 
-          {activeTab === 'Output' && (
+          {currentTab === 'Output' && (
             <OutputFormTab />
           )}
 
-          {activeTab === 'Remediation' && (
+          {currentTab === 'Remediation' && (
             <RemediationFormTabs payloadId={initialValues?.payload_id} />
           )}
 
@@ -306,7 +301,7 @@ const PayloadForm = ({
           </div>
         </form>
       </FormProvider>
-    </SnapshotRemediationProvider>
+    </>
   );
 };
 

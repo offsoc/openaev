@@ -21,9 +21,7 @@ import io.openbas.rest.user.form.player.PlayerInput;
 import io.openbas.utils.fixtures.OrganizationFixture;
 import io.openbas.utils.fixtures.PlayerFixture;
 import io.openbas.utils.fixtures.TagFixture;
-import io.openbas.utils.mockUser.WithMockAdminUser;
-import io.openbas.utils.mockUser.WithMockUserFullPermissions;
-import jakarta.servlet.ServletException;
+import io.openbas.utils.mockUser.WithMockUser;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,7 +47,7 @@ class PlayerApiTest extends IntegrationTest {
 
   @DisplayName("Given valid player input, should create a player successfully")
   @Test
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   void given_validPlayerInput_should_createPlayerSuccessfully() throws Exception {
     // -- PREPARE --
     PlayerInput playerInput = buildPlayerInput();
@@ -74,7 +72,7 @@ class PlayerApiTest extends IntegrationTest {
 
   @DisplayName("Given invalid email in player input, should throw exceptions")
   @Test
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   void given_invalidEmailInPlayerInput_should_throwExceptions() throws Exception {
     // -- PREPARE --
     PlayerInput playerInput = new PlayerInput();
@@ -98,29 +96,23 @@ class PlayerApiTest extends IntegrationTest {
 
   @DisplayName("Given restricted user, should not allow creation of player")
   @Test
-  @WithMockUserFullPermissions
-  void given_restrictedUser_should_notAllowPlayerCreation() {
+  @WithMockUser
+  void given_restrictedUser_should_notAllowPlayerCreation() throws Exception {
     // -- PREPARE --
     PlayerInput playerInput = buildPlayerInput();
 
     // --EXECUTE--
-    Exception exception =
-        assertThrows(
-            ServletException.class,
-            () ->
-                mvc.perform(
-                    post(PLAYER_URI)
-                        .content(asJsonString(playerInput))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON)));
-
-    // --ASSERT--
-    assertTrue(exception.getMessage().contains("User is restricted"));
+    mvc.perform(
+            post(PLAYER_URI)
+                .content(asJsonString(playerInput))
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
   }
 
   @DisplayName("Given valid player input, should upsert player successfully")
   @Test
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   void given_validPlayerInput_should_upsertPlayerSuccessfully() throws Exception {
     // --PREPARE--
     PlayerInput playerInput = buildPlayerInput();
@@ -148,7 +140,7 @@ class PlayerApiTest extends IntegrationTest {
 
   @DisplayName("Given non-existing player input, should upsert successfully")
   @Test
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   void given_nonExistingPlayerInput_should_upsertSuccessfully() throws Exception {
     // --PREPARE--
     PlayerInput playerInput = buildPlayerInput();
@@ -171,7 +163,7 @@ class PlayerApiTest extends IntegrationTest {
 
   @DisplayName("Given valid player ID and input, should update player successfully")
   @Test
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   void given_validPlayerIdAndInput_should_updatePlayerSuccessfully() throws Exception {
     // -- PREPARE --
     PlayerInput playerInput = buildPlayerInput();
@@ -199,30 +191,24 @@ class PlayerApiTest extends IntegrationTest {
 
   @DisplayName("Given restricted user, should not allow updating a player")
   @Test
-  @WithMockUserFullPermissions
-  void given_restrictedUser_should_notAllowPlayerUpdate() {
+  @WithMockUser
+  void given_restrictedUser_should_notAllowPlayerUpdate() throws Exception {
     // -- PREPARE --
     PlayerInput playerInput = buildPlayerInput();
     User user = userRepository.findByEmailIgnoreCase(adminEmail).orElseThrow();
 
     // -- EXECUTE --
-    Exception exception =
-        assertThrows(
-            ServletException.class,
-            () ->
-                mvc.perform(
-                    put(PLAYER_URI + "/" + user.getId())
-                        .content(asJsonString(playerInput))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON)));
-
-    // --ASSERT--
-    assertTrue(exception.getMessage().contains("You dont have the right to update this user"));
+    mvc.perform(
+            put(PLAYER_URI + "/" + user.getId())
+                .content(asJsonString(playerInput))
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
   }
 
   @DisplayName("Given valid player ID, should delete player successfully")
   @Test
-  @WithMockAdminUser
+  @WithMockUser(isAdmin = true)
   void given_validPlayerId_should_deletePlayerSuccessfully() throws Exception {
     // -- PREPARE --
     PlayerInput playerInput = buildPlayerInput();
@@ -246,19 +232,16 @@ class PlayerApiTest extends IntegrationTest {
 
   @DisplayName("Given no existing player ID, should throw an exception")
   @Test
-  @WithMockAdminUser
-  void given_notExistingAssetGroup_should_throwAnException() {
+  @WithMockUser(isAdmin = true)
+  void given_notExistingAssetGroup_should_throwAnException() throws Exception {
     // -- PREPARE --
     String nonexistentAssetGroupId = "nonexistent-id";
 
     // --EXECUTE--
-    assertThrows(
-        ServletException.class,
-        () ->
-            mvc.perform(
-                delete(PLAYER_URI + "/" + nonexistentAssetGroupId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)));
+    mvc.perform(
+        delete(PLAYER_URI + "/" + nonexistentAssetGroupId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .accept(MediaType.APPLICATION_JSON));
   }
 
   // -- PRIVATE --

@@ -3,20 +3,27 @@ import { useTheme } from '@mui/material/styles';
 import { useFormatter } from '../../../i18n';
 import PlatformIcon from '../../../PlatformIcon';
 
-type Props = { platform?: string };
+type Props = {
+  platform?: string;
+  compact?: boolean;
+};
 
-const AssetPlatformFragment = (props: Props) => {
+const AssetPlatformFragment = ({ platform, compact }: Props) => {
   const theme = useTheme();
   const { t } = useFormatter();
   return (
-    <>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+    }}
+    >
       <PlatformIcon
-        platform={props.platform ?? 'Unknown'}
+        platform={platform ?? 'Unknown'}
         width={20}
         marginRight={theme.spacing(2)}
       />
-      {props.platform ?? t('Unknown')}
-    </>
+      {!compact && (platform ?? t('Unknown'))}
+    </div>
   );
 };
 

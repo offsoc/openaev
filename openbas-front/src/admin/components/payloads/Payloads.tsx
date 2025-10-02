@@ -4,12 +4,11 @@ import { useTheme } from '@mui/material/styles';
 import { type CSSProperties, useMemo, useState } from 'react';
 import { makeStyles } from 'tss-react/mui';
 
-import { importPayload, searchPayloads } from '../../../actions/payloads/payload-actions';
+import { fetchDocumentsPayload, importPayload, searchPayloads } from '../../../actions/payloads/payload-actions';
 import Breadcrumbs from '../../../components/Breadcrumbs';
 import Drawer from '../../../components/common/Drawer';
 import ExportButton from '../../../components/common/ExportButton';
 import ImportUploaderJsonApiComponent from '../../../components/common/import/ImportUploaderJsonApiComponent';
-import { buildEmptyFilter, buildFilter } from '../../../components/common/queryable/filter/FilterUtils';
 import { initSorting } from '../../../components/common/queryable/Page';
 import PaginationComponentV2 from '../../../components/common/queryable/pagination/PaginationComponentV2';
 import { buildSearchPagination } from '../../../components/common/queryable/QueryableUtils';
@@ -22,9 +21,10 @@ import ItemTags from '../../../components/ItemTags';
 import PaginatedListLoader from '../../../components/PaginatedListLoader';
 import PayloadIcon from '../../../components/PayloadIcon';
 import PlatformIcon from '../../../components/PlatformIcon';
-import { type Payload, type SearchPaginationInput } from '../../../utils/api-types';
+import { type Document, type Payload, type SearchPaginationInput } from '../../../utils/api-types';
 import { Can } from '../../../utils/permissions/PermissionsProvider';
 import { ACTIONS, SUBJECTS } from '../../../utils/permissions/types';
+import { arrayToRecord } from '../../../utils/utils';
 import CreatePayload from './CreatePayload';
 import PayloadComponent from './PayloadComponent';
 import PayloadPopover from './PayloadPopover';
@@ -198,17 +198,7 @@ const Payloads = () => {
     'payload_execution_arch',
   ];
   const [payloads, setPayloads] = useState<Payload[]>([]);
-  const { queryableHelpers, searchPaginationInput } = useQueryableWithLocalStorage('payloads', buildSearchPagination({
-    sorts: initSorting('payload_name'),
-    filterGroup: {
-      mode: 'and',
-      filters: [
-        buildEmptyFilter('payload_attack_patterns', 'contains'),
-        buildEmptyFilter('payload_platforms', 'contains'),
-        buildFilter('payload_status', ['Deprecated'], 'not_eq'),
-      ],
-    },
-  }));
+  const { queryableHelpers, searchPaginationInput } = useQueryableWithLocalStorage('payloads', buildSearchPagination({ sorts: initSorting('payload_name') }));
 
   // Export
   const exportProps = {
@@ -230,6 +220,13 @@ const Payloads = () => {
   const searchPayloadsToLoad = (input: SearchPaginationInput) => {
     setLoading(true);
     return searchPayloads(input).finally(() => setLoading(false));
+  };
+
+  const [documentsMap, setDocumentsMap] = useState<Record<string, Document> | null>(null);
+  const onSelectedPayload = (payload: Payload) => {
+    fetchDocumentsPayload(payload.payload_id)
+      .then(documents => setDocumentsMap(arrayToRecord<Document, 'document_id'>(documents, 'document_id')))
+      .finally(() => setSelectedPayload(payload));
   };
 
   return (
@@ -300,7 +297,7 @@ const Payloads = () => {
                   >
                     <ListItemButton
                       classes={{ root: classes.item }}
-                      onClick={() => setSelectedPayload(payload)}
+                      onClick={() => onSelectedPayload(payload)}
                     >
                       <ListItemIcon>
                         {payload.payload_collector ? (
@@ -352,7 +349,10 @@ const Payloads = () => {
         handleClose={() => setSelectedPayload(null)}
         title={t('Selected payload')}
       >
-        <PayloadComponent selectedPayload={selectedPayload} />
+        <PayloadComponent
+          selectedPayload={selectedPayload}
+          documentsMap={documentsMap}
+        />
       </Drawer>
     </>
   );

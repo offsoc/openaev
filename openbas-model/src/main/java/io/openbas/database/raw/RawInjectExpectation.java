@@ -9,6 +9,8 @@ public interface RawInjectExpectation {
 
   String getInject_expectation_name();
 
+  String getInject_title();
+
   String getInject_expectation_description();
 
   String getInject_expectation_type();
@@ -46,4 +48,6 @@ public interface RawInjectExpectation {
   Set<String> getSecurity_platform_ids();
 
   String getScenario_id();
+
+  Instant getTracking_sent_date();
 }

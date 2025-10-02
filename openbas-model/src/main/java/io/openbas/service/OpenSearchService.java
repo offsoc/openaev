@@ -21,10 +21,10 @@ import io.openbas.engine.EngineService;
 import io.openbas.engine.EsModel;
 import io.openbas.engine.Handler;
 import io.openbas.engine.api.*;
-import io.openbas.engine.api.DateHistogramWidget.DateHistogramSeries;
-import io.openbas.engine.api.StructuralHistogramWidget.StructuralHistogramSeries;
+import io.openbas.engine.api.WidgetConfiguration.Series;
 import io.openbas.engine.model.EsBase;
 import io.openbas.engine.model.EsSearch;
+import io.openbas.engine.query.EsCountInterval;
 import io.openbas.engine.query.EsSeries;
 import io.openbas.engine.query.EsSeriesData;
 import io.openbas.exception.AnalyticsEngineException;
@@ -34,17 +34,16 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
+import org.opensearch.client.json.JsonData;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._types.FieldSort;
-import org.opensearch.client.opensearch._types.FieldValue;
-import org.opensearch.client.opensearch._types.SortOptions;
-import org.opensearch.client.opensearch._types.SortOrder;
+import org.opensearch.client.opensearch._types.*;
 import org.opensearch.client.opensearch._types.aggregations.*;
 import org.opensearch.client.opensearch._types.query_dsl.*;
 import org.opensearch.client.opensearch.core.*;
@@ -324,10 +323,12 @@ public class OpenSearchService implements EngineService {
       Map<String, CustomDashboardParameters> definitionParameters) {
     BoolQuery.Builder mainQuery = new BoolQuery.Builder();
     List<Query> mainMust = new ArrayList<>();
-    Query restrictionQuery = buildQueryRestrictions(user);
+    // TODO removing user specific restrictions -> issue/3768 will refactor this logic to have
+    // restriction based on markings
+    /*Query restrictionQuery = buildQueryRestrictions(user);
     if (restrictionQuery != null) {
       mainMust.add(restrictionQuery);
-    }
+    }*/
     BoolQuery.Builder dataQueryBuilder = new BoolQuery.Builder();
     List<Query> shouldList = new ArrayList<>();
     if (search != null) {
@@ -447,10 +448,12 @@ public class OpenSearchService implements EngineService {
   public void bulkDelete(List<String> ids) {
     try {
       List<FieldValue> values = ids.stream().map(FieldValue::of).toList();
+      // Delete the direct document corresponding to the id
       Query directId =
           TermsQuery.of(
                   t -> t.field("base_id.keyword").terms(TermsQueryField.of(tq -> tq.value(values))))
               .toQuery();
+      // Delete "cascade" the documents including the id in their "base_dependencies"
       Query dependenciesId =
           TermsQuery.of(
                   t ->
@@ -463,6 +466,38 @@ public class OpenSearchService implements EngineService {
           new DeleteByQueryRequest.Builder()
               .index(engineConfig.getIndexPrefix() + "*")
               .query(query)
+              .refresh(Refresh.True)
+              .build());
+      // Delete the id in the attributes of the documents including the id
+      openSearchClient.updateByQuery(
+          new UpdateByQueryRequest.Builder()
+              .index(engineConfig.getIndexPrefix() + "*")
+              .script(
+                  Script.of(
+                      s ->
+                          s.inline(
+                              InlineScript.of(
+                                  is ->
+                                      is.source(
+                                              """
+                                                      // For each EsBase attribute of each document
+                                                      for (String key : ctx._source.keySet().toArray()) {
+                                                        // If it's a "base_XXX_side" (means String id or List of ids), we delete only in the "base_XXX_side" of the EsBase the object id deleted before with the deleteByQuery
+                                                        if(key.startsWith("base_") && key.endsWith("_side") && ctx._source[key] != null) {
+                                                            if (ctx._source[key] instanceof List) {
+                                                                ctx._source[key].removeIf(item -> item == params.valueToRemove);
+                                                            } else if (ctx._source[key] instanceof String && ctx._source[key] == params.valueToRemove) {
+                                                                ctx._source.remove(key);
+                                                            }
+                                                        }
+                                                      }
+                                                    """)
+                                          .params(
+                                              "valueToRemove",
+                                              JsonData.of(
+                                                  ids.getFirst())))))) // Only 1 id in this list
+              .refresh(Refresh.True)
+              .conflicts(Conflicts.Proceed)
               .build());
     } catch (IOException e) {
       log.error(String.format("bulkDelete exception: %s", e.getMessage()), e);
@@ -473,7 +508,7 @@ public class OpenSearchService implements EngineService {
 
   // region query
 
-  public long count(RawUserAuth user, CountRuntime runtime) {
+  public EsCountInterval count(RawUserAuth user, CountRuntime runtime) {
     FlatConfiguration widgetConfig = runtime.getConfig();
 
     BoolQuery.Builder queryBuilder = new BoolQuery.Builder();
@@ -489,32 +524,59 @@ public class OpenSearchService implements EngineService {
                   .getFilter(), // 1 count = 1 serie limit = 1 filter group
               runtime.getParameters(),
               runtime.getDefinitionParameters());
-      Query query;
       if (widgetConfig.getTimeRange().equals(ALL_TIME)) {
-        query = queryBuilder.must(countQuery).build().toQuery();
+        Query query = queryBuilder.must(countQuery).build().toQuery();
+        long allTimeCount =
+            openSearchClient
+                .count(c -> c.index(engineConfig.getIndexPrefix() + "*").query(query))
+                .count();
+        return new EsCountInterval(allTimeCount, 0L, allTimeCount);
       } else {
-        Instant finalStart =
+        Instant currentIntervalStart =
             calcStartDate(widgetConfig, runtime.getParameters(), runtime.getDefinitionParameters());
-        Instant finalEnd =
+        Instant currentIntervalEnd =
             calcEndDate(widgetConfig, runtime.getParameters(), runtime.getDefinitionParameters());
-        Query dateRangeQuery =
-            buildDateRangeQuery(widgetConfig.getDateAttribute(), finalStart, finalEnd);
-        query = queryBuilder.must(dateRangeQuery, countQuery).build().toQuery();
+        Query currentIntervalDateRangeQuery =
+            buildDateRangeQuery(
+                widgetConfig.getDateAttribute(), currentIntervalStart, currentIntervalEnd);
+        Query currentIntervalQuery =
+            queryBuilder.must(currentIntervalDateRangeQuery, countQuery).build().toQuery();
+        long currentIntervalCount =
+            openSearchClient
+                .count(
+                    c -> c.index(engineConfig.getIndexPrefix() + "*").query(currentIntervalQuery))
+                .count();
+
+        // In our case, to avoid any gap, currentIntervalStart = previousIntervalEnd
+        Duration intervalDuration = Duration.between(currentIntervalStart, currentIntervalEnd);
+        Instant previousIntervalStart = currentIntervalStart.minus(intervalDuration);
+
+        Query previousIntervalDateRangeQuery =
+            buildDateRangeQuery(
+                widgetConfig.getDateAttribute(), previousIntervalStart, currentIntervalStart);
+        Query previousIntervalQuery =
+            queryBuilder.must(previousIntervalDateRangeQuery, countQuery).build().toQuery();
+        long previousIntervalCount =
+            openSearchClient
+                .count(
+                    c -> c.index(engineConfig.getIndexPrefix() + "*").query(previousIntervalQuery))
+                .count();
+
+        return new EsCountInterval(
+            currentIntervalCount,
+            previousIntervalCount,
+            currentIntervalCount - previousIntervalCount);
       }
-      Query finalQuery = query;
-      return openSearchClient
-          .count(c -> c.index(engineConfig.getIndexPrefix() + "*").query(finalQuery))
-          .count();
     } catch (IOException e) {
       log.error(String.format("count exception: %s", e.getMessage()), e);
     }
-    return 0;
+    return new EsCountInterval(0L, 0L, 0L);
   }
 
   public EsSeries termHistogram(
       RawUserAuth user,
       StructuralHistogramWidget widgetConfig,
-      StructuralHistogramSeries config,
+      Series config,
       Map<String, String> parameters,
       Map<String, CustomDashboardParameters> definitionParameters) {
 
@@ -589,7 +651,7 @@ public class OpenSearchService implements EngineService {
    */
   private EsSeries termHistogramSTerms(
       @NotNull final RawUserAuth user,
-      @NotNull final StructuralHistogramSeries config,
+      @NotNull final Series config,
       @NotNull final Aggregate aggregate,
       @NotNull final String field) {
     boolean isSideAggregation = field.endsWith("_side");
@@ -624,7 +686,7 @@ public class OpenSearchService implements EngineService {
    * @return a series
    */
   private EsSeries termHistogramDTerms(
-      @NotNull final StructuralHistogramSeries config, @NotNull final Aggregate aggregate) {
+      @NotNull final Series config, @NotNull final Aggregate aggregate) {
     Buckets<DoubleTermsBucket> buckets = aggregate.dterms().buckets();
     List<EsSeriesData> data =
         buckets.array().stream()
@@ -645,7 +707,7 @@ public class OpenSearchService implements EngineService {
    * @return a series
    */
   private EsSeries termHistogramLTerms(
-      @NotNull final StructuralHistogramSeries config, @NotNull final Aggregate aggregate) {
+      @NotNull final Series config, @NotNull final Aggregate aggregate) {
     Buckets<LongTermsBucket> buckets = aggregate.lterms().buckets();
     List<EsSeriesData> data =
         buckets.array().stream()
@@ -670,7 +732,7 @@ public class OpenSearchService implements EngineService {
   public EsSeries dateHistogram(
       RawUserAuth user,
       DateHistogramWidget widgetConfig,
-      DateHistogramSeries config,
+      Series config,
       Map<String, String> parameters,
       Map<String, CustomDashboardParameters> definitionParameters) {
     BoolQuery.Builder queryBuilder = new BoolQuery.Builder();

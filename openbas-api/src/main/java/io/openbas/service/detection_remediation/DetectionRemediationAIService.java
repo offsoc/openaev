@@ -31,7 +31,7 @@ public class DetectionRemediationAIService {
   private static final String CROWDSTRIKE_URI = "/remediation/crowdstrike";
   private static final String SPLUNK_URI = "/remediation/splunk";
 
-  @Value("${remediation.detection.webservice}")
+  @Value("${remediation.detection.webservice:#{null}}")
   String REMEDIATION_DETECTION_WEBSERVICE;
 
   private final Ee ee;

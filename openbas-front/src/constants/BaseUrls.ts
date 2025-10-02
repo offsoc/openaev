@@ -2,6 +2,8 @@
 
 export const ADMIN_BASE_URL = '/admin';
 
+export const DASHBOARD_BASE_URL = '/admin/workspaces/custom_dashboards';
+
 export const SCENARIO_BASE_URL = '/admin/scenarios';
 export const SIMULATION_BASE_URL = '/admin/simulations';
 export const ATOMIC_BASE_URL = '/admin/atomic_testings';
@@ -19,6 +21,7 @@ export const CHANNEL_BASE_URL = '/admin/components/channels';
 export const CHALLENGE_BASE_URL = '/admin/components/challenges';
 
 export const PAYLOAD_BASE_URL = '/admin/payloads';
+export const FINDING_BASE_URL = '/admin/findings';
 
 // Integrations
 export const COLLECTOR_BASE_URL = '/admin/integrations/collectors';

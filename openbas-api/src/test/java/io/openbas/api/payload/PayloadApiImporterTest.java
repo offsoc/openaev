@@ -1,7 +1,7 @@
 package io.openbas.api.payload;
 
 import static io.openbas.rest.payload.PayloadApi.PAYLOAD_URI;
-import static io.openbas.utils.Constants.IMPORTED_OBJECT_NAME_SUFFIX;
+import static io.openbas.utils.constants.Constants.IMPORTED_OBJECT_NAME_SUFFIX;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,8 +15,8 @@ import io.openbas.IntegrationTest;
 import io.openbas.database.model.Payload;
 import io.openbas.jsonapi.JsonApiDocument;
 import io.openbas.jsonapi.ResourceObject;
-import io.openbas.jsonapi.ZipJsonApi;
-import io.openbas.utils.mockUser.WithMockAdminUser;
+import io.openbas.service.ZipJsonService;
+import io.openbas.utils.mockUser.WithMockUser;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -27,12 +27,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
-@WithMockAdminUser
+@WithMockUser(isAdmin = true)
 @DisplayName("Payload api importer tests")
 class PayloadApiImporterTest extends IntegrationTest {
 
   @Autowired private MockMvc mockMvc;
-  @Autowired private ZipJsonApi<Payload> zipJsonApi;
+  @Autowired private ZipJsonService<Payload> zipJsonService;
 
   @Test
   @DisplayName("Import a payload returns complete entity")
@@ -54,7 +54,7 @@ class PayloadApiImporterTest extends IntegrationTest {
         new JsonApiDocument<>(
             new ResourceObject(null, "command", attributes, emptyMap()), emptyList());
 
-    byte[] zip = zipJsonApi.writeZip(document, emptyMap());
+    byte[] zip = zipJsonService.writeZip(document, emptyMap());
     MockMultipartFile zipFile =
         new MockMultipartFile("file", "payload.zip", "application/zip", zip);
 

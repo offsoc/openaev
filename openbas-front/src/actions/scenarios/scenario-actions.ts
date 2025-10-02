@@ -16,6 +16,7 @@ import {
   type SearchPaginationInput,
   type Team,
   type UpdateScenarioInput,
+  type WidgetToEntitiesInput,
 } from '../../utils/api-types';
 import { MESSAGING$ } from '../../utils/Environment';
 import * as schema from '../Schema';
@@ -239,4 +240,28 @@ export const checkScenarioTagRules = (scenarioId: string, newTagIds: string[]) =
   const uri = `/api/scenarios/${scenarioId}/check-rules`;
   const input = { new_tags: newTagIds };
   return simplePostCall(uri, input);
+};
+
+export const fetchCustomDashboardFromScenario = (scenarioId: string) => {
+  return simpleCall(`/api/scenarios/${scenarioId}/dashboard`);
+};
+
+export const countByScenario = (scenarioId: string, widgetId: string, parameters: Record<string, string | undefined>) => {
+  return simplePostCall(`/api/scenarios/${scenarioId}/dashboard/count/${widgetId}`, parameters);
+};
+
+export const seriesByScenario = (scenarioId: string, widgetId: string, parameters: Record<string, string | undefined>) => {
+  return simplePostCall(`/api/scenarios/${scenarioId}/dashboard/series/${widgetId}`, parameters);
+};
+
+export const entitiesByScenario = (scenarioId: string, widgetId: string, parameters: Record<string, string | undefined>) => {
+  return simplePostCall(`/api/scenarios/${scenarioId}/dashboard/entities/${widgetId}`, parameters);
+};
+
+export const widgetToEntitiesByByScenario = (scenarioId: string, widgetId: string, input: WidgetToEntitiesInput) => {
+  return simplePostCall(`/api/scenarios/${scenarioId}/dashboard/entities-runtime/${widgetId}`, input);
+};
+
+export const attackPathsByScenario = (scenarioId: string, widgetId: string, parameters: Record<string, string | undefined>) => {
+  return simplePostCall(`/api/scenarios/${scenarioId}/dashboard/attack-paths/${widgetId}`, parameters);
 };

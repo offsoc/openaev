@@ -3,7 +3,15 @@ package io.openbas.rest.settings;
 import io.openbas.aop.RBAC;
 import io.openbas.aop.UserRoleDescription;
 import io.openbas.database.model.Action;
+import io.openbas.database.model.CustomDashboard;
 import io.openbas.database.model.ResourceType;
+import io.openbas.engine.model.EsBase;
+import io.openbas.engine.query.EsAttackPath;
+import io.openbas.engine.query.EsCountInterval;
+import io.openbas.engine.query.EsSeries;
+import io.openbas.rest.custom_dashboard.CustomDashboardService;
+import io.openbas.rest.dashboard.model.WidgetToEntitiesInput;
+import io.openbas.rest.dashboard.model.WidgetToEntitiesOutput;
 import io.openbas.rest.helper.RestBehavior;
 import io.openbas.rest.settings.form.*;
 import io.openbas.rest.settings.response.PlatformSettings;
@@ -14,12 +22,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RequestMapping("/api/settings")
 @RestController
@@ -34,10 +42,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlatformSettingsApi extends RestBehavior {
 
   private PlatformSettingsService platformSettingsService;
+  private CustomDashboardService customDashboardService;
 
   @Autowired
   public void setPlatformSettingsService(PlatformSettingsService platformSettingsService) {
     this.platformSettingsService = platformSettingsService;
+  }
+
+  @Autowired
+  public void setCustomDashboardService(CustomDashboardService customDashboardService) {
+    this.customDashboardService = customDashboardService;
   }
 
   @GetMapping()
@@ -46,17 +60,6 @@ public class PlatformSettingsApi extends RestBehavior {
   @Operation(summary = "List settings", description = "Return the settings")
   public PlatformSettings settings() {
     return platformSettingsService.findSettings();
-  }
-
-  @GetMapping("/default")
-  @RBAC(skipRBAC = true)
-  @ApiResponses(
-      value = {@ApiResponse(responseCode = "200", description = "The list of default settings")})
-  @Operation(
-      summary = "List default settings",
-      description = "Return the settings with default values")
-  public PlatformSettings defaultSettings() {
-    return platformSettingsService.defaultValues();
   }
 
   @PutMapping()
@@ -116,12 +119,49 @@ public class PlatformSettingsApi extends RestBehavior {
     return platformSettingsService.updateSettingsPolicies(input);
   }
 
-  @PutMapping("/onboarding")
-  @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The updated settings")})
-  @Operation(summary = "Update onboarding settings", description = "Update the onboarding settings")
-  @RBAC(resourceType = ResourceType.PLATFORM_SETTING, actionPerformed = Action.WRITE)
-  public PlatformSettings updateSettingsOnboarding(
-      @Valid @RequestBody SettingsOnboardingUpdateInput input) {
-    return platformSettingsService.updateSettingsOnboarding(input);
+  @GetMapping("/home-dashboard")
+  @RBAC(actionPerformed = Action.READ, resourceType = ResourceType.PLATFORM_SETTING)
+  public ResponseEntity<CustomDashboard> homeDashboard() {
+    return ResponseEntity.ok(customDashboardService.findHomeDashboard().orElse(null));
+  }
+
+  @PostMapping("/home-dashboard/count/{widgetId}")
+  @RBAC(actionPerformed = Action.READ, resourceType = ResourceType.PLATFORM_SETTING)
+  public EsCountInterval homeDashboardCount(
+      @PathVariable final String widgetId,
+      @RequestBody(required = false) Map<String, String> parameters) {
+    return customDashboardService.homeDashboardCount(widgetId, parameters);
+  }
+
+  @PostMapping("/home-dashboard/series/{widgetId}")
+  @RBAC(actionPerformed = Action.READ, resourceType = ResourceType.PLATFORM_SETTING)
+  public List<EsSeries> homeDashboardSeries(
+      @PathVariable final String widgetId,
+      @RequestBody(required = false) Map<String, String> parameters) {
+    return customDashboardService.homeDashboardSeries(widgetId, parameters);
+  }
+
+  @PostMapping("/home-dashboard/entities/{widgetId}")
+  @RBAC(actionPerformed = Action.READ, resourceType = ResourceType.PLATFORM_SETTING)
+  public List<EsBase> homeDashboardEntities(
+      @PathVariable final String widgetId,
+      @RequestBody(required = false) Map<String, String> parameters) {
+    return customDashboardService.homeDashboardEntities(widgetId, parameters);
+  }
+
+  @PostMapping("/home-dashboard/entities-runtime/{widgetId}")
+  @RBAC(actionPerformed = Action.READ, resourceType = ResourceType.PLATFORM_SETTING)
+  public WidgetToEntitiesOutput homeWidgetToEntitiesRuntime(
+      @PathVariable final String widgetId, @Valid @RequestBody WidgetToEntitiesInput input) {
+    return customDashboardService.homeWidgetToEntitiesRuntimeOnResourceId(widgetId, input);
+  }
+
+  @PostMapping("/home-dashboard/attack-paths/{widgetId}")
+  @RBAC(actionPerformed = Action.READ, resourceType = ResourceType.PLATFORM_SETTING)
+  public List<EsAttackPath> homeDashboardAttackPaths(
+      @PathVariable final String widgetId,
+      @RequestBody(required = false) Map<String, String> parameters)
+      throws ExecutionException, InterruptedException {
+    return customDashboardService.homeDashboardAttackPaths(widgetId, parameters);
   }
 }

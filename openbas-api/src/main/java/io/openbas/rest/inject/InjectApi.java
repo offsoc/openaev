@@ -8,16 +8,18 @@ import io.openbas.aop.RBAC;
 import io.openbas.aop.lock.Lock;
 import io.openbas.aop.lock.LockResourceType;
 import io.openbas.database.model.*;
+import io.openbas.database.raw.RawDocument;
 import io.openbas.database.repository.ExerciseRepository;
+import io.openbas.database.repository.GrantRepository;
 import io.openbas.database.repository.InjectRepository;
 import io.openbas.database.repository.UserRepository;
 import io.openbas.database.specification.InjectSpecification;
 import io.openbas.database.specification.SpecificationUtils;
 import io.openbas.rest.atomic_testing.form.ExecutionTraceOutput;
 import io.openbas.rest.atomic_testing.form.InjectStatusOutput;
+import io.openbas.rest.document.DocumentService;
 import io.openbas.rest.exception.BadRequestException;
 import io.openbas.rest.exception.ElementNotFoundException;
-import io.openbas.rest.exception.UnprocessableContentException;
 import io.openbas.rest.exercise.exports.ExportOptions;
 import io.openbas.rest.helper.RestBehavior;
 import io.openbas.rest.inject.form.*;
@@ -42,7 +44,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -52,11 +53,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @RestController
@@ -78,6 +77,8 @@ public class InjectApi extends RestBehavior {
   private final UserRepository userRepository;
   private final PayloadMapper payloadMapper;
   private final UserService userService;
+  private final DocumentService documentService;
+  private final GrantRepository grantRepository;
 
   // -- INJECTS --
 
@@ -97,6 +98,11 @@ public class InjectApi extends RestBehavior {
     // Control and format inputs
     List<Inject> injects =
         getInjectsAndCheckInputForBulkProcessing(input, Grant.GRANT_TYPE.OBSERVER);
+
+    if (injects.isEmpty()) {
+      throw new ElementNotFoundException("No injects to export");
+    }
+
     runInjectExport(
         injects,
         ExportOptions.mask(
@@ -121,7 +127,7 @@ public class InjectApi extends RestBehavior {
                     SpecificationUtils.hasGrantAccess(
                         currentUser.getId(),
                         currentUser.isAdminOrBypass(),
-                        currentUser.getCapabilities().contains(Capability.ACCESS_PAYLOADS),
+                        currentUser.getCapabilities().contains(Capability.ACCESS_ASSESSMENT),
                         Grant.GRANT_TYPE.OBSERVER)));
     List<String> foundIds = injects.stream().map(Inject::getId).toList();
     List<String> missedIds =
@@ -277,32 +283,6 @@ public class InjectApi extends RestBehavior {
       throw new BadRequestException(String.format("Invalid target type %s", targetType));
     }
     return targetService.getTargetOptionsByIds(injectTargetTypeEnum, ids);
-  }
-
-  @PostMapping(
-      path = INJECT_URI + "/import",
-      consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-  @RBAC(actionPerformed = Action.WRITE, resourceType = ResourceType.INJECT)
-  public void injectsImport(
-      @RequestPart("file") MultipartFile file,
-      @RequestPart("input") InjectImportInput input,
-      HttpServletResponse response)
-      throws Exception {
-    // find target
-    if (input == null || input.getTarget() == null) {
-      throw new UnprocessableContentException("Insufficient input: target must not be null");
-    }
-    if (!List.of(InjectImportTargetType.values()).contains(input.getTarget().getType())) {
-      throw new UnprocessableContentException(
-          "Invalid target type: must be one of %s"
-              .formatted(
-                  String.join(
-                      ", ",
-                      Arrays.stream(InjectImportTargetType.values())
-                          .map(Enum::toString)
-                          .toList())));
-    }
-    this.injectImportService.importInjects(file, input);
   }
 
   @PostMapping(INJECT_URI + "/execution/reception/{injectId}")
@@ -538,5 +518,19 @@ public class InjectApi extends RestBehavior {
       @PathVariable String injectId) {
     return payloadMapper.toDetectionRemediationOutputs(
         injectService.fetchDetectionRemediationsByInjectId(injectId));
+  }
+
+  @Operation(description = "Get documents by inject and payload id")
+  @GetMapping(INJECT_URI + "/{injectId}/payload/{payloadId}/documents")
+  @RBAC(resourceId = "#injectId", actionPerformed = Action.READ, resourceType = ResourceType.INJECT)
+  public List<RawDocument> getPayloadDocumentsByInjectIdAndPayloadId(
+      @PathVariable String injectId, @PathVariable String payloadId) {
+    Payload payload = injectService.getPayloadByInjectId(injectId);
+
+    if (!payloadId.equals(payload.getId())) {
+      throw new BadRequestException("provided payload id mismatch with provided inject id");
+    }
+
+    return documentService.documentsForPayload(payloadId);
   }
 }

@@ -15,6 +15,7 @@ interface Props {
   error?: boolean;
   className?: string;
   variant?: 'standard' | 'outlined' | 'filled';
+  disabled?: boolean;
 }
 
 const AutocompleteField: FunctionComponent<Props> = ({
@@ -27,6 +28,7 @@ const AutocompleteField: FunctionComponent<Props> = ({
   error = false,
   className = '',
   variant = 'outlined',
+  disabled,
 }) => {
   const { t } = useFormatter();
   const theme = useTheme();
@@ -50,6 +52,7 @@ const AutocompleteField: FunctionComponent<Props> = ({
 
   return (
     <Autocomplete
+      disabled={disabled}
       selectOnFocus
       className={className}
       groupBy={(option: GroupOption | Option) => 'group' in option ? option.group : ''}
@@ -80,13 +83,13 @@ const AutocompleteField: FunctionComponent<Props> = ({
         />
       )}
       renderOption={(props, option) => {
-        const { key, ...rest } = props;
+        delete props.key;
         const checked = currentValue === option.id;
         return (
-          <Tooltip key={key} title={option.label}>
+          <Tooltip key={option.id} title={option.label}>
             <Box
               component="li"
-              {...rest}
+              {...props}
               style={{
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',

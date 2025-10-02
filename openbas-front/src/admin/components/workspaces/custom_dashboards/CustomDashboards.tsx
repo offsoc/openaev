@@ -178,14 +178,10 @@ const CustomDashboards = () => {
         }
       </List>
       <Can I={ACTIONS.MANAGE} a={SUBJECTS.DASHBOARDS}>
-        <CustomDashboardCreation
-          onCreate={(result: CustomDashboard) => setCustomDashboards([result, ...customDashboards])}
-        />
+        <CustomDashboardCreation />
       </Can>
     </>
   );
 };
 
 export default CustomDashboards;
-
-// FIXME: add a hook -> if elastic is not up, then you can access to this feature
