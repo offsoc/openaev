@@ -13,10 +13,10 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import org.hibernate.annotations.UuidGenerator;
 
 @Data
 @Entity
@@ -26,11 +26,10 @@ import org.hibernate.annotations.UuidGenerator;
 public class Role implements Base {
 
   @Id
-  @UuidGenerator
   @Column(name = "role_id")
   @JsonProperty("role_id")
   @NotBlank
-  private String id;
+  private String id = UUID.randomUUID().toString();
 
   @Queryable(searchable = true, sortable = true)
   @JsonProperty("role_name")

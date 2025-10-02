@@ -16,13 +16,21 @@ import org.springframework.stereotype.Service;
 public class OpenCTIConnectorService {
   @Getter private final List<ConnectorBase> connectors;
   private final OpenCTIService openCTIService;
+  private final PrivilegeService privilegeService;
 
   /**
    * Register or pings all loaded connectors. Does not crash if registering or pinging a connector
    * raises an exception, but logs a warning.
    */
   public void registerOrPingAllConnectors() {
-    for (ConnectorBase c : connectors.stream().filter(ConnectorBase::shouldRegister).toList()) {
+    List<ConnectorBase> enabledConnectors =
+        connectors.stream().filter(ConnectorBase::shouldRegister).toList();
+    if (enabledConnectors.isEmpty()) {
+      return;
+    }
+
+    privilegeService.ensureRequiredPrivilegesExist();
+    for (ConnectorBase c : enabledConnectors) {
       try {
         if (!c.isRegistered()) {
           openCTIService.registerConnector(c);

@@ -4,15 +4,14 @@ import static io.openbas.database.model.ExecutionTrace.getNewErrorTrace;
 import static io.openbas.database.model.ExecutionTrace.getNewSuccessTrace;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.openbas.database.model.DataAttachment;
-import io.openbas.database.model.Execution;
-import io.openbas.database.model.ExecutionTraceAction;
+import io.openbas.database.model.*;
 import io.openbas.opencti.client.OpenCTIClient;
 import io.openbas.opencti.client.mutations.*;
 import io.openbas.opencti.client.response.Response;
 import io.openbas.opencti.client.response.fields.Error;
 import io.openbas.opencti.config.OpenCTIConfig;
 import io.openbas.opencti.connectors.ConnectorBase;
+import io.openbas.opencti.connectors.service.PrivilegeService;
 import io.openbas.opencti.errors.ConnectorError;
 import java.io.IOException;
 import java.time.Instant;
@@ -30,9 +29,13 @@ public class OpenCTIService {
   private final OpenCTIConfig classicOpenCTIConfig;
   private final OpenCTIClient openCTIClient;
   private final ObjectMapper mapper;
+  private final PrivilegeService privilegeService;
 
   public RegisterConnector.ResponsePayload registerConnector(ConnectorBase connector)
       throws IOException, ConnectorError {
+
+    privilegeService.ensurePrivilegedUserExistsForConnector(connector);
+
     Response r =
         openCTIClient.execute(
             connector.getUrl(), connector.getAuthToken(), new RegisterConnector(connector));
