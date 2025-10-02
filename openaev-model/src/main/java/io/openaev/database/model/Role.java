@@ -4,6 +4,7 @@ import static java.time.Instant.now;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.openaev.annotation.ControlledUuidGeneration;
 import io.openaev.annotation.Queryable;
 import io.openaev.database.audit.ModelBaseListener;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -13,7 +14,6 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -26,10 +26,11 @@ import lombok.Getter;
 public class Role implements Base {
 
   @Id
+  @ControlledUuidGeneration
   @Column(name = "role_id")
   @JsonProperty("role_id")
   @NotBlank
-  private String id = UUID.randomUUID().toString();
+  private String id;
 
   @Queryable(searchable = true, sortable = true)
   @JsonProperty("role_name")

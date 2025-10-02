@@ -3,6 +3,7 @@ package io.openaev.database.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.openaev.annotation.ControlledUuidGeneration;
 import io.openaev.annotation.Queryable;
 import io.openaev.database.audit.ModelBaseListener;
 import io.openaev.helper.MultiIdListDeserializer;
@@ -25,10 +26,11 @@ import org.hibernate.annotations.FetchMode;
 public class Group implements Base {
 
   @Id
+  @ControlledUuidGeneration
   @Column(name = "group_id")
   @JsonProperty("group_id")
   @NotBlank
-  private String id = UUID.randomUUID().toString();
+  private String id;
 
   @Queryable(searchable = true, sortable = true)
   @Column(name = "group_name")

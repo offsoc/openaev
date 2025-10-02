@@ -59,6 +59,7 @@ public class PrivilegeService {
               roleService.createRole(
                   PROCESS_STIX_ROLE_ID,
                   "STIX bundle processors",
+                  "Can process STIX bundles via API",
                   Set.of(Capability.MANAGE_STIX_BUNDLE)));
     }
     return processStixRole.get();
