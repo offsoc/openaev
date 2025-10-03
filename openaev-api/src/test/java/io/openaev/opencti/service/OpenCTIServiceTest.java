@@ -372,7 +372,7 @@ public class OpenCTIServiceTest extends IntegrationTest {
 
         assertThat(user).isNotEmpty();
         assertThat(user.get().getEmail())
-            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+            .isEqualTo("connector-%s@openaev.invalid".formatted(testConnector.getId()));
         assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
         assertThat(user.get().getGroups().stream().map(Group::getId).toList())
             .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
@@ -410,7 +410,7 @@ public class OpenCTIServiceTest extends IntegrationTest {
 
         assertThat(user).isNotEmpty();
         assertThat(user.get().getEmail())
-            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+            .isEqualTo("connector-%s@openaev.invalid".formatted(testConnector.getId()));
         assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
         assertThat(user.get().getGroups().stream().map(Group::getId).toList())
             .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
@@ -548,7 +548,7 @@ public class OpenCTIServiceTest extends IntegrationTest {
 
         assertThat(user).isNotEmpty();
         assertThat(user.get().getEmail())
-            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+            .isEqualTo("connector-%s@openaev.invalid".formatted(testConnector.getId()));
         assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
         assertThat(user.get().getGroups().stream().map(Group::getId).toList())
             .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
@@ -586,7 +586,7 @@ public class OpenCTIServiceTest extends IntegrationTest {
 
         assertThat(user).isNotEmpty();
         assertThat(user.get().getEmail())
-            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+            .isEqualTo("connector-%s@openaev.invalid".formatted(testConnector.getId()));
         assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
         assertThat(user.get().getGroups().stream().map(Group::getId).toList())
             .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
