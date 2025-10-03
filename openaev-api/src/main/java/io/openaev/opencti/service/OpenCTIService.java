@@ -68,6 +68,8 @@ public class OpenCTIService {
               .formatted(connector.getName(), connector.getUrl()));
     }
 
+    privilegeService.ensurePrivilegedUserExistsForConnector(connector);
+
     Response r =
         openCTIClient.execute(connector.getUrl(), connector.getAuthToken(), new Ping(connector));
     if (r.isError()) {

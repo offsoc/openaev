@@ -9,15 +9,36 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.openaev.IntegrationTest;
+import io.openaev.database.model.Group;
+import io.openaev.database.model.Role;
+import io.openaev.database.model.User;
 import io.openaev.opencti.client.OpenCTIClient;
 import io.openaev.opencti.client.mutations.Ping;
 import io.openaev.opencti.client.mutations.RegisterConnector;
 import io.openaev.opencti.client.response.Response;
 import io.openaev.opencti.connectors.ConnectorBase;
+import io.openaev.opencti.connectors.Constants;
 import io.openaev.opencti.errors.ConnectorError;
+import io.openaev.service.GroupService;
+import io.openaev.service.RoleService;
+import io.openaev.service.UserService;
+import io.openaev.utils.fixtures.GroupFixture;
+import io.openaev.utils.fixtures.RoleFixture;
+import io.openaev.utils.fixtures.TokenFixture;
+import io.openaev.utils.fixtures.UserFixture;
+import io.openaev.utils.fixtures.composers.GroupComposer;
+import io.openaev.utils.fixtures.composers.RoleComposer;
+import io.openaev.utils.fixtures.composers.TokenComposer;
+import io.openaev.utils.fixtures.composers.UserComposer;
 import io.openaev.utils.fixtures.opencti.ConnectorFixture;
 import io.openaev.utils.fixtures.opencti.ResponseFixture;
+import jakarta.persistence.EntityManager;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,6 +52,22 @@ public class OpenCTIServiceTest extends IntegrationTest {
   @MockBean private OpenCTIClient mockOpenCTIClient;
   @Autowired private OpenCTIService openCTIService;
   @Autowired private ObjectMapper mapper;
+  @Autowired private RoleService roleService;
+  @Autowired private GroupService groupService;
+  @Autowired private UserService userService;
+  @Autowired private EntityManager entityManager;
+  @Autowired private RoleComposer roleComposer;
+  @Autowired private GroupComposer groupComposer;
+  @Autowired private UserComposer userComposer;
+  @Autowired private TokenComposer tokenComposer;
+
+  @BeforeEach
+  public void setup() {
+    roleComposer.reset();
+    groupComposer.reset();
+    userComposer.reset();
+    tokenComposer.reset();
+  }
 
   @Nested
   @DisplayName("Response parsing tests")
@@ -184,6 +221,375 @@ public class OpenCTIServiceTest extends IntegrationTest {
             .hasMessage(
                 "Cannot ping connector %s with OpenCTI at %s: connector hasn't registered yet. Try again later."
                     .formatted(testConnector.getName(), testConnector.getUrl()));
+      }
+    }
+  }
+
+  @Nested
+  @DisplayName("Automated privileges provisioning")
+  public class AutomatedPrivilegesProvisioning {
+    private Role createProvisionedRole() {
+      Role specificRole = RoleFixture.getRole();
+      specificRole.setId(Constants.PROCESS_STIX_ROLE_ID);
+      specificRole.setName(Constants.PROCESS_STIX_ROLE_NAME);
+      specificRole.setDescription(Constants.PROCESS_STIX_ROLE_DESCRIPTION);
+      specificRole.setCapabilities(Constants.PROCESS_STIX_ROLE_CAPABILITIES);
+
+      Role saved = roleComposer.forRole(specificRole).persist().get();
+      entityManager.flush();
+      entityManager.clear();
+      return saved;
+    }
+
+    @Nested
+    @DisplayName("On register()")
+    public class OnRegister {
+
+      @Test
+      @DisplayName("When the specific role does not exist, it is created on register")
+      public void whenTheSpecificRoleDoesNotExist_itIsCreatedOnRegister()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(RegisterConnector.class)))
+            .thenReturn(okResponse);
+
+        openCTIService.registerConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Role> role = roleService.findById(Constants.PROCESS_STIX_ROLE_ID);
+
+        assertThat(role).isNotEmpty();
+        assertThat(role.get().getCapabilities())
+            .isEqualTo(Constants.PROCESS_STIX_ROLE_CAPABILITIES);
+        assertThat(role.get().getName()).isEqualTo(Constants.PROCESS_STIX_ROLE_NAME);
+        assertThat(role.get().getDescription()).isEqualTo(Constants.PROCESS_STIX_ROLE_DESCRIPTION);
+      }
+
+      @Test
+      @DisplayName(
+          "When the specific role already exists, it is updated on register with correct attributes")
+      public void whenTheSpecificRoleAlreadyExists_itIsUpdatedOnRegisterWithCorrectAttributes()
+          throws IOException, ConnectorError {
+        Role specificRole = RoleFixture.getRole();
+        specificRole.setId(Constants.PROCESS_STIX_ROLE_ID);
+        specificRole.setName("bad name");
+        specificRole.setDescription("bad description");
+        specificRole.setCapabilities(Set.of());
+        roleComposer.forRole(specificRole).persist();
+        entityManager.flush();
+        entityManager.clear();
+
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(RegisterConnector.class)))
+            .thenReturn(okResponse);
+
+        openCTIService.registerConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Role> role = roleService.findById(Constants.PROCESS_STIX_ROLE_ID);
+
+        assertThat(role).isNotEmpty();
+        assertThat(role.get().getCapabilities())
+            .isEqualTo(Constants.PROCESS_STIX_ROLE_CAPABILITIES);
+        assertThat(role.get().getName()).isEqualTo(Constants.PROCESS_STIX_ROLE_NAME);
+        assertThat(role.get().getDescription()).isEqualTo(Constants.PROCESS_STIX_ROLE_DESCRIPTION);
+      }
+
+      @Test
+      @DisplayName("When the specific group does not exist, it is created on register")
+      public void whenTheSpecificGroupDoesNotExist_itIsCreatedOnRegister()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(RegisterConnector.class)))
+            .thenReturn(okResponse);
+
+        openCTIService.registerConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Group> group = groupService.findById(Constants.PROCESS_STIX_GROUP_ID);
+
+        assertThat(group).isNotEmpty();
+        assertThat(group.get().getName()).isEqualTo(Constants.PROCESS_STIX_GROUP_NAME);
+        assertThat(group.get().getDescription())
+            .isEqualTo(Constants.PROCESS_STIX_GROUP_DESCRIPTION);
+        assertThat(group.get().getRoles().stream().map(Role::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_ROLE_ID));
+      }
+
+      @Test
+      @DisplayName(
+          "When the specific group already exists, it is updated on register with correct attributes")
+      public void whenTheSpecificGroupAlreadyExists_itIsUpdatedOnRegisterWithCorrectAttributes()
+          throws IOException, ConnectorError {
+        Group specificGroup = GroupFixture.createGroup();
+        specificGroup.setId(Constants.PROCESS_STIX_GROUP_ID);
+        specificGroup.setName("bad name");
+        specificGroup.setDescription("bad description");
+        specificGroup.setRoles(new ArrayList<>());
+        groupComposer.forGroup(specificGroup).persist();
+        entityManager.flush();
+        entityManager.clear();
+
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(RegisterConnector.class)))
+            .thenReturn(okResponse);
+
+        openCTIService.registerConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Group> group = groupService.findById(Constants.PROCESS_STIX_GROUP_ID);
+
+        assertThat(group).isNotEmpty();
+        assertThat(group.get().getName()).isEqualTo(Constants.PROCESS_STIX_GROUP_NAME);
+        assertThat(group.get().getDescription())
+            .isEqualTo(Constants.PROCESS_STIX_GROUP_DESCRIPTION);
+        assertThat(group.get().getRoles().stream().map(Role::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_ROLE_ID));
+      }
+
+      @Test
+      @DisplayName("When the specific user does not exist, it is created on register")
+      public void whenTheSpecificUserDoesNotExist_itIsCreatedOnRegister()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(RegisterConnector.class)))
+            .thenReturn(okResponse);
+
+        openCTIService.registerConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> user = userService.findByToken(testConnector.getAuthToken());
+
+        assertThat(user).isNotEmpty();
+        assertThat(user.get().getEmail())
+            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+        assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
+        assertThat(user.get().getGroups().stream().map(Group::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
+      }
+
+      @Test
+      @DisplayName(
+          "When the specific user already exists, it is updated on register with correct attributes")
+      public void whenTheSpecificUserAlreadyExists_itIsUpdatedOnRegisterWithCorrectAttributes()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+
+        User specificUser = UserFixture.getUser();
+        specificUser.setFirstname("bad firstname");
+        specificUser.setEmail("bad_email@domain.invalid");
+        specificUser.setGroups(List.of());
+        userComposer
+            .forUser(specificUser)
+            .withToken(
+                tokenComposer.forToken(
+                    TokenFixture.getTokenWithValue(testConnector.getAuthToken())))
+            .persist();
+        entityManager.flush();
+        entityManager.clear();
+
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(RegisterConnector.class)))
+            .thenReturn(okResponse);
+
+        openCTIService.registerConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> user = userService.findByToken(testConnector.getAuthToken());
+
+        assertThat(user).isNotEmpty();
+        assertThat(user.get().getEmail())
+            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+        assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
+        assertThat(user.get().getGroups().stream().map(Group::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
+      }
+    }
+
+    @Nested
+    @DisplayName("On ping()")
+    public class OnPing {
+
+      @Test
+      @DisplayName("When the specific role does not exist, it is created on ping")
+      public void whenTheSpecificRoleDoesNotExist_itIsCreatedOnPing()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        testConnector.setRegistered(true);
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(Ping.class))).thenReturn(okResponse);
+
+        openCTIService.pingConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Role> role = roleService.findById(Constants.PROCESS_STIX_ROLE_ID);
+
+        assertThat(role).isNotEmpty();
+        assertThat(role.get().getCapabilities())
+            .isEqualTo(Constants.PROCESS_STIX_ROLE_CAPABILITIES);
+        assertThat(role.get().getName()).isEqualTo(Constants.PROCESS_STIX_ROLE_NAME);
+        assertThat(role.get().getDescription()).isEqualTo(Constants.PROCESS_STIX_ROLE_DESCRIPTION);
+      }
+
+      @Test
+      @DisplayName(
+          "When the specific role already exists, it is updated on ping with correct attributes")
+      public void whenTheSpecificRoleAlreadyExists_itIsUpdatedOnPingWithCorrectAttributes()
+          throws IOException, ConnectorError {
+        Role specificRole = RoleFixture.getRole();
+        specificRole.setId(Constants.PROCESS_STIX_ROLE_ID);
+        specificRole.setName("bad name");
+        specificRole.setDescription("bad description");
+        specificRole.setCapabilities(Set.of());
+        roleComposer.forRole(specificRole).persist();
+        entityManager.flush();
+        entityManager.clear();
+
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        testConnector.setRegistered(true);
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(Ping.class))).thenReturn(okResponse);
+
+        openCTIService.pingConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Role> role = roleService.findById(Constants.PROCESS_STIX_ROLE_ID);
+
+        assertThat(role).isNotEmpty();
+        assertThat(role.get().getCapabilities())
+            .isEqualTo(Constants.PROCESS_STIX_ROLE_CAPABILITIES);
+        assertThat(role.get().getName()).isEqualTo(Constants.PROCESS_STIX_ROLE_NAME);
+        assertThat(role.get().getDescription()).isEqualTo(Constants.PROCESS_STIX_ROLE_DESCRIPTION);
+      }
+
+      @Test
+      @DisplayName("When the specific group does not exist, it is created on ping")
+      public void whenTheSpecificGroupDoesNotExist_itIsCreatedOnPing()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        testConnector.setRegistered(true);
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(Ping.class))).thenReturn(okResponse);
+
+        openCTIService.pingConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Group> group = groupService.findById(Constants.PROCESS_STIX_GROUP_ID);
+
+        assertThat(group).isNotEmpty();
+        assertThat(group.get().getName()).isEqualTo(Constants.PROCESS_STIX_GROUP_NAME);
+        assertThat(group.get().getDescription())
+            .isEqualTo(Constants.PROCESS_STIX_GROUP_DESCRIPTION);
+        assertThat(group.get().getRoles().stream().map(Role::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_ROLE_ID));
+      }
+
+      @Test
+      @DisplayName(
+          "When the specific group already exists, it is updated on ping with correct attributes")
+      public void whenTheSpecificGroupAlreadyExists_itIsUpdatedOnPingWithCorrectAttributes()
+          throws IOException, ConnectorError {
+        Group specificGroup = GroupFixture.createGroup();
+        specificGroup.setId(Constants.PROCESS_STIX_GROUP_ID);
+        specificGroup.setName("bad name");
+        specificGroup.setDescription("bad description");
+        specificGroup.setRoles(new ArrayList<>());
+        groupComposer.forGroup(specificGroup).persist();
+        entityManager.flush();
+        entityManager.clear();
+
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        testConnector.setRegistered(true);
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(Ping.class))).thenReturn(okResponse);
+
+        openCTIService.pingConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Group> group = groupService.findById(Constants.PROCESS_STIX_GROUP_ID);
+
+        assertThat(group).isNotEmpty();
+        assertThat(group.get().getName()).isEqualTo(Constants.PROCESS_STIX_GROUP_NAME);
+        assertThat(group.get().getDescription())
+            .isEqualTo(Constants.PROCESS_STIX_GROUP_DESCRIPTION);
+        assertThat(group.get().getRoles().stream().map(Role::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_ROLE_ID));
+      }
+
+      @Test
+      @DisplayName("When the specific user does not exist, it is created on ping")
+      public void whenTheSpecificUserDoesNotExist_itIsCreatedOnPing()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        testConnector.setRegistered(true);
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(Ping.class))).thenReturn(okResponse);
+
+        openCTIService.pingConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> user = userService.findByToken(testConnector.getAuthToken());
+
+        assertThat(user).isNotEmpty();
+        assertThat(user.get().getEmail())
+            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+        assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
+        assertThat(user.get().getGroups().stream().map(Group::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
+      }
+
+      @Test
+      @DisplayName(
+          "When the specific user already exists, it is updated on ping with correct attributes")
+      public void whenTheSpecificUserAlreadyExists_itIsUpdatedOnPingWithCorrectAttributes()
+          throws IOException, ConnectorError {
+        ConnectorBase testConnector = ConnectorFixture.getDefaultConnector();
+        testConnector.setRegistered(true);
+
+        User specificUser = UserFixture.getUser();
+        specificUser.setFirstname("bad firstname");
+        specificUser.setEmail("bad_email@domain.invalid");
+        specificUser.setGroups(List.of());
+        userComposer
+            .forUser(specificUser)
+            .withToken(
+                tokenComposer.forToken(
+                    TokenFixture.getTokenWithValue(testConnector.getAuthToken())))
+            .persist();
+        entityManager.flush();
+        entityManager.clear();
+
+        Response okResponse = ResponseFixture.getOkResponse();
+        when(mockOpenCTIClient.execute(any(), any(), any(Ping.class))).thenReturn(okResponse);
+
+        openCTIService.pingConnector(testConnector);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<User> user = userService.findByToken(testConnector.getAuthToken());
+
+        assertThat(user).isNotEmpty();
+        assertThat(user.get().getEmail())
+            .isEqualTo("connector-%s@openbas.invalid".formatted(testConnector.getId()));
+        assertThat(user.get().getFirstname()).isEqualTo(testConnector.getName());
+        assertThat(user.get().getGroups().stream().map(Group::getId).toList())
+            .isEqualTo(List.of(Constants.PROCESS_STIX_GROUP_ID));
       }
     }
   }

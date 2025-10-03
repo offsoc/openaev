@@ -98,22 +98,7 @@ public class GroupApi extends RestBehavior {
   @Transactional(rollbackOn = Exception.class)
   public Group updateGroupRoles(
       @PathVariable String groupId, @Valid @RequestBody GroupUpdateRolesInput input) {
-    Group group =
-        groupRepository
-            .findById(groupId)
-            .orElseThrow(() -> new ElementNotFoundException("Group not found with id: " + groupId));
-
-    group.setRoles(
-        input.getRoleIds().stream()
-            .map(
-                id ->
-                    roleService
-                        .findById(id)
-                        .orElseThrow(
-                            () -> new ElementNotFoundException("Role not found with id: " + id)))
-            .collect(toList()));
-
-    return groupRepository.save(group);
+    return groupService.updateGroupRoles(groupId, input);
   }
 
   @PutMapping("/api/groups/{groupId}/information")
@@ -124,9 +109,7 @@ public class GroupApi extends RestBehavior {
   @Transactional(rollbackOn = Exception.class)
   public Group updateGroupInformation(
       @PathVariable String groupId, @Valid @RequestBody GroupCreateInput input) {
-    Group group = groupRepository.findById(groupId).orElseThrow(ElementNotFoundException::new);
-    group.setUpdateAttributes(input);
-    return groupRepository.save(group);
+    return groupService.updateGroup(groupId, input);
   }
 
   @PostMapping("/api/groups/{groupId}/grants")

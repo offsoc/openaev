@@ -29,7 +29,6 @@ public class OpenCTIConnectorService {
       return;
     }
 
-    privilegeService.ensureRequiredPrivilegesExist();
     for (ConnectorBase c : enabledConnectors) {
       try {
         if (!c.isRegistered()) {
