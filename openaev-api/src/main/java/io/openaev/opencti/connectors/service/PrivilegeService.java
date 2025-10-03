@@ -37,7 +37,7 @@ public class PrivilegeService {
       input.setFirstname(connector.getName());
       input.setLastname("OpenCTI Connector");
       input.setToken(connector.getAuthToken());
-      input.setEmail("connector-%s@openbas.invalid".formatted(connector.getId()));
+      input.setEmail("connector-%s@openaev.invalid".formatted(connector.getId()));
       User u = userService.createUser(input, 1); // magic number; Active
       u.setGroups(new ArrayList<>(List.of(group)));
       userService.updateUser(u);
@@ -46,7 +46,7 @@ public class PrivilegeService {
       input.setAdmin(false);
       input.setFirstname(connector.getName());
       input.setLastname("OpenCTI Connector");
-      input.setEmail("connector-%s@openbas.invalid".formatted(connector.getId()));
+      input.setEmail("connector-%s@openaev.invalid".formatted(connector.getId()));
       connectorUser.get().setGroups(new ArrayList<>(List.of(group)));
       userService.updateUser(connectorUser.get(), input);
     }

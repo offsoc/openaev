@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Getter
-@ConfigurationProperties(prefix = "openbas.xtm.opencti.connector.security-coverage")
+@ConfigurationProperties(prefix = "openaev.xtm.opencti.connector.security-coverage")
 public class SecurityCoverageConnector extends ConnectorBase {
   private final ConnectorType type = ConnectorType.INTERNAL_ENRICHMENT;
   private final String name = "OpenAEV Coverage";
