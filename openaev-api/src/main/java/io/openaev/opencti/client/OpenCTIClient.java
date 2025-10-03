@@ -20,6 +20,7 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -35,9 +36,9 @@ public class OpenCTIClient {
   public Response execute(String url, String authToken, String mutationBody, JsonNode variables)
       throws IOException {
     HttpPost req = new HttpPost(url);
-    req.addHeader("Authorization", "Bearer %s".formatted(authToken));
-    req.addHeader("Content-Type", "application/json; charset=utf-8");
-    req.addHeader("Accept", "application/json");
+    req.addHeader(HttpHeaders.AUTHORIZATION, "Bearer %s".formatted(authToken));
+    req.addHeader(HttpHeaders.CONTENT_TYPE, "application/json; charset=utf-8");
+    req.addHeader(HttpHeaders.ACCEPT, "application/json");
     Map<String, JsonNode> payload = new HashMap<>();
     payload.put("query", mapper.valueToTree(mutationBody));
     if (variables != null) {
